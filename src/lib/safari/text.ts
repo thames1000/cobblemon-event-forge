@@ -105,19 +105,28 @@ export function buildSafariChecklist(opts: {
   L.push("");
 
   L.push("SETUP");
-  L.push(`  1. Upload ${opts.datapackFileName} to <server>/world/datapacks/ and run /reload.`);
-  L.push(`  2. Confirm with /datapack list — you should see "${namespace}".`);
+  let s = 1;
+  L.push(`  ${s++}. Upload ${opts.datapackFileName} to <server>/world/datapacks/.`);
+  if (config.arena.enabled && config.arena.mode === "single-biome") {
+    L.push(`  ${s++}. RESTART the server (full stop/start — NOT /reload). The single-biome`);
+    L.push(`        arena dimension ${namespace}:zone only registers on restart; without this`);
+    L.push(`        create_arena fails with "Missing key ... ${namespace}:zone".`);
+  } else {
+    L.push(`  ${s++}. Run /reload (or restart).`);
+  }
+  L.push(`  ${s++}. Confirm with /datapack list — you should see "${namespace}".`);
   if (config.arena.enabled) {
-    L.push(`  3. Create the temporary arena world (Resource World mod) — run ONCE:`);
+    const mirror = config.arena.mode === "single-biome" ? `${namespace}:zone` : config.arena.mirror.trim() || "minecraft:overworld";
+    L.push(`  ${s++}. Create the temporary arena world (Resource World mod) — run ONCE:`);
     L.push(`        /function ${namespace}:create_arena`);
-    L.push(`        (this runs: /resourceworld create ${slug} mirror ${config.arena.mirror.trim() || "minecraft:overworld"})`);
+    L.push(`        (this runs: /resourceworld create ${slug} mirror ${mirror})`);
     L.push(`        Players warp into it automatically when they use a ticket.`);
   } else if (config.biomes.length) {
-    L.push(`  3. Spawns are restricted to: ${config.biomes.join(", ")}. Host the safari there.`);
+    L.push(`  ${s++}. Spawns are restricted to: ${config.biomes.join(", ")}. Host the safari there.`);
   } else {
-    L.push(`  3. Spawns are NOT biome-restricted — they can appear anywhere overworld.`);
+    L.push(`  ${s++}. Spawns are NOT biome-restricted — they can appear anywhere overworld.`);
   }
-  L.push(`  4. Post discord_announcement.md, place sign_text.txt at the entrance, and set up an NPC with npc_dialogue.txt.`);
+  L.push(`  ${s++}. Post discord_announcement.md, place sign_text.txt at the entrance, and set up an NPC with npc_dialogue.txt.`);
   L.push("");
 
   if (config.ticket.enabled) {

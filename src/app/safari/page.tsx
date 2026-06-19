@@ -265,7 +265,8 @@ export default function SafariPage() {
                     />
                     <p className="mt-1.5 text-[11px] text-slate-500">
                       Generates a one-biome overworld dimension and mirrors it. Keep this biome inside your spawn{" "}
-                      <b>Biomes</b> above so the encounters appear in the arena.
+                      <b>Biomes</b> above so the encounters appear in the arena.{" "}
+                      <span className="text-amber-400/90">Needs a full server restart (not /reload) before create_arena.</span>
                     </p>
                   </div>
                 ) : (

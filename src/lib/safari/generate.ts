@@ -78,7 +78,15 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
         `# Create the temporary "${config.title}" arena world (Resource World mod).`,
         `# Run this ONCE during setup. Syntax may vary by mod version:`,
         `#   /resourceworld create <id> mirror <dimension> [seed]`,
-        ...(singleBiome ? [`# mirrors the single-biome dimension ${mirrorTarget} defined by this pack`] : []),
+        ...(singleBiome
+          ? [
+              `# Mirrors the single-biome dimension ${mirrorTarget} defined by this pack.`,
+              `# IMPORTANT: that dimension only registers after a FULL SERVER RESTART`,
+              `# (datapack dimensions do NOT load on /reload). Restart once with this`,
+              `# pack installed, THEN run this function — otherwise you'll get`,
+              `# "Missing key ... ${mirrorTarget}".`,
+            ]
+          : []),
         `resourceworld create ${slug} mirror ${mirrorTarget}`,
         `tellraw @a ${JSON.stringify({ text: `${config.title} arena world created — players enter with a ticket.`, color: "green" })}`,
         "",
