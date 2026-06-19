@@ -1,6 +1,7 @@
 import { DEFAULT_VERSION } from "../datapack/packMeta";
 import { findSpecies } from "./pokemon";
 import type { PokeType } from "./pokemon";
+import { newObjective } from "../objective/types";
 import type { EventConfig, LegendaryTrigger, WeatherTheme } from "../event/types";
 
 /**
@@ -183,7 +184,7 @@ export function configFromPreset(presetId: string): EventConfig {
     blurb: p.tagline,
     weather: p.weather,
     featured,
-    objectives: p.objectives.map((text) => ({ text, kind: "custom" as const })),
+    objectives: p.objectives.map((text, i) => newObjective(`b${i + 1}`, { label: text })),
     rewards: p.rewards.map(([itemId, count]) => ({ itemId, count })),
     legendaryTrigger: defaultTrigger(p.id, featured),
     pack: {

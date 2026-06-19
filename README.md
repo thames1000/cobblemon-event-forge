@@ -7,6 +7,11 @@ An external owner dashboard ("Game Master console") that turns a few form fields
 into everything you need to run a rotating server event:
 
 - a **validated Cobblemon datapack** (`.zip`) with themed spawns,
+- **auto-tracked bounties** — objectives compile to Cobblemon advancements
+  (catch / shiny / evolve / hatch / win-battles / defeat / level-up) that detect
+  completion in-game and run a customizable reward (items, a **crate key**, a
+  spawned Pokémon, raw commands) with an optional server-wide announcement;
+  manual objectives get a reward function you run by hand,
 - an optional **legendary auto-spawn** — catch N of a type → a `cobblemon:catch_pokemon`
   advancement fires a `/spawnpokemon` reward function (per-player or server-wide),
 - a **reward `.mcfunction`** you run against winners,

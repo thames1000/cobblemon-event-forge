@@ -1,6 +1,7 @@
 import type { GeneratedFile } from "../datapack/types";
 import type { EventConfig } from "./types";
 import { toId } from "../datapack/sanitize";
+import { describeObjective } from "../objective/triggers";
 
 /**
  * event_bounties.json — an owner-side, structured description of the event's
@@ -20,11 +21,19 @@ export function buildBountiesFile(opts: {
     weather: opts.config.weather,
     featured: opts.config.featured.map((f) => f.species),
     bounties: opts.config.objectives.map((o, i) => ({
-      id: `${toId(opts.eventSlug)}_b${i + 1}`,
-      text: o.text,
-      kind: o.kind ?? "custom",
-      ...(o.count != null ? { count: o.count } : {}),
-      ...(o.type ? { type: o.type } : {}),
+      id: `${toId(opts.eventSlug)}_bounty_${i + 1}`,
+      label: describeObjective(o),
+      mode: o.mode,
+      ...(o.mode === "auto"
+        ? {
+            trigger: o.triggerId,
+            count: o.count,
+            ...(o.pokemonType !== "any" ? { type: o.pokemonType } : {}),
+            ...(o.species.trim() ? { species: o.species } : {}),
+          }
+        : {}),
+      announce: o.announce,
+      rewards: o.rewards,
     })),
     rewards: opts.config.rewards.map((r) => ({
       item: r.itemId,

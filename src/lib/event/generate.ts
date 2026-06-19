@@ -6,6 +6,7 @@ import { buildPackMeta } from "../datapack/packMeta";
 import { buildSpawnFiles } from "../datapack/spawns";
 import { buildRewardFunction } from "../datapack/mcfunction";
 import { buildLegendaryFiles } from "./legendary";
+import { buildObjectiveFiles } from "../objective/generate";
 import { buildLifecycleFiles } from "./lifecycle";
 import { validateDatapack } from "../datapack/validate";
 import { buildBountiesFile } from "./bounties";
@@ -60,6 +61,13 @@ export function generateEvent(config: EventConfig): GenerateResult {
       eventSlug: slug,
       trigger: config.legendaryTrigger,
       enableFlag: config.pack.enableFlag,
+    }),
+  );
+  datapackFiles.push(
+    ...buildObjectiveFiles({
+      namespace,
+      objectives: config.objectives,
+      packFormat: config.packFormat,
     }),
   );
   // lifecycle (load / uninstall / tick + tags) — centralized so there's one

@@ -2,6 +2,7 @@ import { configFromPreset } from "../src/lib/catalog/eventTypes";
 import { generateEvent } from "../src/lib/event/generate";
 import { validateDatapack } from "../src/lib/datapack/validate";
 import { DATAPACK_KINDS } from "../src/lib/datapack/types";
+import { newObjective } from "../src/lib/objective/types";
 
 // Reproduce the brainstorm's flagship "Electric Storm Weekend".
 const cfg = configFromPreset("legendary-hunt");
@@ -14,7 +15,21 @@ cfg.featured = [
   { species: "zapdos", bucket: "ultra-rare", weight: 1, level: "50-60" },
   { species: "raikou", bucket: "ultra-rare", weight: 1, level: "50-60" },
 ];
-cfg.objectives = [{ text: "Catch 30 Electric-types", kind: "catch-type", count: 30, type: "electric" }];
+cfg.objectives = [
+  newObjective("b1", {
+    mode: "auto",
+    triggerId: "cobblemon:catch_pokemon",
+    count: 30,
+    pokemonType: "electric",
+    announce: true,
+    rewards: [
+      { kind: "item", itemId: "cobblemon:ultra_ball", count: 10 },
+      { kind: "crate-key", crateName: "Safari Crate", baseItem: "minecraft:nether_star", glint: true },
+      { kind: "spawn", species: "pikachu", level: 25 },
+    ],
+  }),
+  newObjective("b2", { mode: "manual", label: "Win the costume contest", rewards: [{ kind: "command", command: "/give @s minecraft:diamond 5" }] }),
+];
 cfg.rewards = [
   { itemId: "cobblemon:bottle_cap", count: 1 },
   { itemId: "cobblemon:ultra_ball", count: 10 },
@@ -73,6 +88,31 @@ console.log("\n=== sample: advancement ===");
 console.log(adv?.contents);
 console.log("\n=== sample: summon function ===");
 console.log(bundle.files.find((f) => f.path.endsWith("summon_zapdos.mcfunction"))?.contents);
+
+// --- objectives: auto compiles to advancement + reward fn; manual = fn only ---
+const advB1 = bundle.files.find((f) => f.path.endsWith("/advancement/bounty_1.json"));
+const fnB1 = bundle.files.find((f) => f.path.endsWith("/function/bounty_1.mcfunction"));
+if (!advB1) errors.push("objective: missing bounty_1 advancement");
+if (advB1) {
+  const d = JSON.parse(advB1.contents);
+  if (d.criteria?.done?.trigger !== "cobblemon:catch_pokemon") errors.push("objective: wrong trigger");
+  if (d.criteria?.done?.conditions?.count !== 30 || d.criteria?.done?.conditions?.type !== "electric")
+    errors.push("objective: wrong conditions");
+  if (!String(d.rewards?.function).endsWith(":bounty_1")) errors.push("objective: advancement not wired to reward fn");
+}
+if (fnB1) {
+  if (!fnB1.contents.includes("give @s cobblemon:ultra_ball 10")) errors.push("objective: item reward missing");
+  if (!fnB1.contents.includes("spawnpokemon pikachu level=25")) errors.push("objective: spawn reward missing");
+  if (!/give @s minecraft:nether_star\[.*cobble_crate:"safari_crate"/.test(fnB1.contents)) errors.push("objective: crate-key reward missing");
+  if (!fnB1.contents.includes('"selector":"@s"')) errors.push("objective: announce broadcast missing");
+}
+// manual objective: reward fn but NO advancement
+if (!bundle.files.some((f) => f.path.endsWith("/function/bounty_2.mcfunction"))) errors.push("objective: manual reward fn missing");
+if (bundle.files.some((f) => f.path.endsWith("/advancement/bounty_2.json"))) errors.push("objective: manual objective should not have an advancement");
+const fnB2 = bundle.files.find((f) => f.path.endsWith("/function/bounty_2.mcfunction"));
+if (fnB2 && !fnB2.contents.includes("give @s minecraft:diamond 5")) errors.push("objective: manual raw command missing");
+console.log("\n=== bounty_1 reward function ===");
+console.log(fnB1?.contents);
 
 // --- pack lifecycle: default event has load + uninstall, NO tick ---
 if (!bundle.files.some((f) => f.path.endsWith("/function/load.mcfunction"))) errors.push("lifecycle: missing load.mcfunction");

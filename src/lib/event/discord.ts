@@ -4,6 +4,8 @@ import { findPreset } from "../catalog/eventTypes";
 import { findReward } from "../catalog/items";
 import { findSpecies } from "../catalog/pokemon";
 import { legendarySummary } from "./legendary";
+import { describeObjective } from "../objective/triggers";
+import { describeReward } from "../reward/actions";
 
 const WEATHER_LABEL: Record<string, string> = {
   any: "Any weather",
@@ -63,7 +65,10 @@ export function buildDiscordAnnouncement(opts: {
 
   if (c.objectives.length) {
     lines.push("## Bounties");
-    for (const o of c.objectives) lines.push(`- ${o.text}`);
+    for (const o of c.objectives) {
+      const reward = o.rewards.length ? ` — *${o.rewards.map(describeReward).join(", ")}*` : "";
+      lines.push(`- ${describeObjective(o)}${reward}`);
+    }
     lines.push("");
   }
 

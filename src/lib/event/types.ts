@@ -1,4 +1,7 @@
 import type { PokeType } from "../catalog/pokemon";
+import type { Objective } from "../objective/types";
+
+export type { Objective };
 
 /** Cobblemon spawn rarity buckets, lowest -> highest rarity. */
 export type Bucket = "common" | "uncommon" | "rare" | "ultra-rare";
@@ -24,15 +27,6 @@ export interface RewardLine {
   count: number;
   /** Only used when itemId === "command": a raw mcfunction line. */
   rawCommand?: string;
-}
-
-/** A quest/bounty objective attached to the event. */
-export interface Objective {
-  text: string;
-  /** Optional structured hint for future quest export (FTB etc.). */
-  kind?: "catch-count" | "catch-type" | "defeat" | "custom";
-  count?: number;
-  type?: PokeType;
 }
 
 /**

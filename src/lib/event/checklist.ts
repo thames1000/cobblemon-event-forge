@@ -5,6 +5,7 @@ import { versionForFormat } from "../datapack/packMeta";
 import { buildMotd } from "./discord";
 import { legendarySummary } from "./legendary";
 import { EVENT_OBJECTIVE, enabledFlag, legendFlag } from "./lifecycle";
+import { describeObjective } from "../objective/triggers";
 
 /**
  * admin_checklist.txt — the human runbook. Turns "I generated files" into "here
@@ -73,8 +74,24 @@ export function buildChecklist(opts: {
     L.push("");
   }
 
+  if (c.objectives.length) {
+    L.push("BOUNTIES");
+    c.objectives.forEach((o, i) => {
+      const n = i + 1;
+      if (o.mode === "auto") {
+        L.push(`  - [auto] ${describeObjective(o)} — tracked in-game, rewards automatically.`);
+      } else if (o.rewards.length) {
+        L.push(`  - [manual] ${describeObjective(o)} — grant with:`);
+        L.push(`        /execute as <player> run function ${opts.namespace}:bounty_${n}`);
+      } else {
+        L.push(`  - [manual] ${describeObjective(o)} — (no datapack reward; award by hand)`);
+      }
+    });
+    L.push("");
+  }
+
   L.push("HANDING OUT REWARDS");
-  L.push(`  - When a player completes a bounty, run:`);
+  L.push(`  - The event-wide reward bundle (for winners) is:`);
   L.push(`        /execute as <player> run function ${opts.namespace}:${opts.slug}_rewards`);
   L.push(`  - Currency lines assume CobbleDollars — verify the command matches your economy mod.`);
   L.push("");

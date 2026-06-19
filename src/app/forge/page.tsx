@@ -10,6 +10,7 @@ import { balanceWarnings } from "@/lib/event/balance";
 import { zipDatapack, zipAll } from "@/lib/datapack/zip";
 import { DATAPACK_KINDS } from "@/lib/datapack/types";
 import { downloadZip, downloadText } from "@/lib/download";
+import ObjectiveEditor from "@/app/components/ObjectiveEditor";
 import type { EventConfig, Bucket, WeatherTheme, LegendaryTrigger } from "@/lib/event/types";
 
 function PackToggle({
@@ -273,39 +274,7 @@ export default function ForgePage() {
           </section>
 
           {/* objectives */}
-          <section className="panel p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Bounties / objectives</h2>
-              <button
-                className="btn-ghost px-2.5 py-1 text-xs"
-                onClick={() => patch({ objectives: [...config.objectives, { text: "", kind: "custom" }] })}
-              >
-                + Add
-              </button>
-            </div>
-            <div className="space-y-2">
-              {config.objectives.map((o, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input
-                    className="input"
-                    placeholder="Catch 30 Electric-types"
-                    value={o.text}
-                    onChange={(e) => {
-                      const objectives = [...config.objectives];
-                      objectives[i] = { ...o, text: e.target.value };
-                      patch({ objectives });
-                    }}
-                  />
-                  <button
-                    className="btn-ghost px-2 py-1 text-xs"
-                    onClick={() => patch({ objectives: config.objectives.filter((_, j) => j !== i) })}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
+          <ObjectiveEditor objectives={config.objectives} onChange={(objectives) => patch({ objectives })} />
 
           {/* rewards */}
           <section className="panel p-5">
