@@ -115,6 +115,13 @@ export function validateDatapack(files: GeneratedFile[]): ValidationResult {
       }
     }
 
+    // 8c. dimensions live under data/<namespace>/dimension/.
+    if (f.kind === "dimension") {
+      if (!/^data\/[a-z0-9_.-]+\/dimension\//.test(f.path)) {
+        issues.push({ severity: "warning", message: "Dimensions must live under data/<namespace>/dimension/.", path: f.path });
+      }
+    }
+
     // 8. functions: 1.21+ uses the singular "function" folder.
     if (f.kind === "function") {
       if (!f.path.endsWith(".mcfunction")) {

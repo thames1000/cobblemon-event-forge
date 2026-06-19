@@ -29,6 +29,7 @@ export type FileKind =
   | "function" // .mcfunction
   | "loot-table" // datapack loot table JSON
   | "advancement" // datapack advancement JSON (catch trigger)
+  | "dimension" // datapack dimension JSON (single-biome arena)
   | "tag" // datapack tag JSON (e.g. minecraft:load)
   | "bounties" // event_bounties.json (owner-side data)
   | "discord" // discord_announcement.md
@@ -42,6 +43,7 @@ export const DATAPACK_KINDS: ReadonlySet<FileKind> = new Set<FileKind>([
   "function",
   "loot-table",
   "advancement",
+  "dimension",
   "tag",
 ]);
 

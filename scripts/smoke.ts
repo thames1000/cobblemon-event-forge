@@ -306,8 +306,33 @@ if (rewardAdv) {
 for (const p of ["safari_rules.txt", "npc_dialogue.txt", "sign_text.txt", "discord_announcement.md", "admin_checklist.txt"]) {
   if (!sfres.bundle.files.some((f) => f.path === p)) errors.push(`safari: missing side-car ${p}`);
 }
+// arena: single-biome dimension + create_arena mirrors it + uninstall(delete) + enter teleports in
+const dim = sfres.bundle.files.find((f) => f.path.endsWith("/dimension/zone.json"));
+if (!dim) errors.push("safari: missing single-biome dimension");
+if (dim) {
+  const d = JSON.parse(dim.contents);
+  if (d.generator?.biome_source?.type !== "minecraft:fixed" || d.generator?.biome_source?.biome !== "minecraft:dark_forest")
+    errors.push("safari: single-biome dimension wrong biome source");
+}
+const createArena = sfres.bundle.files.find((f) => f.path.endsWith("/function/create_arena.mcfunction"));
+if (!createArena || !/resourceworld create haunted_woods_safari mirror haunted_woods_safari:zone/.test(createArena.contents))
+  errors.push("safari: create_arena should mirror the single-biome dimension");
+// mirror mode falls back to the configured dimension and emits no dimension file
+const mirrorMode = generateSafari({ ...safari, arena: { ...safari.arena, mode: "mirror", mirror: "minecraft:overworld" } });
+if (mirrorMode.bundle.files.some((f) => f.path.endsWith("/dimension/zone.json"))) errors.push("safari: mirror mode should not emit a dimension");
+if (!mirrorMode.bundle.files.some((f) => /resourceworld create .* mirror minecraft:overworld/.test(f.contents))) errors.push("safari: mirror mode create wrong");
+const uninstall = sfres.bundle.files.find((f) => f.path.endsWith("/function/uninstall.mcfunction"));
+if (!uninstall || !/resourceworld delete haunted_woods_safari/.test(uninstall.contents)) errors.push("safari: uninstall delete missing");
+if (enterFn && !/resourceworld tp haunted_woods_safari/.test(enterFn.contents)) errors.push("safari: enter doesn't warp into arena");
+// arena disabled => no create_arena / uninstall, enter has no tp
+const noArena = generateSafari({ ...safari, arena: { ...safari.arena, enabled: false } });
+if (noArena.bundle.files.some((f) => f.path.endsWith("/function/create_arena.mcfunction"))) errors.push("safari: create_arena present when arena disabled");
+if (noArena.bundle.files.some((f) => /resourceworld tp/.test(f.contents))) errors.push("safari: tp present when arena disabled");
+
 console.log("\n=== enter function ===");
 console.log(enterFn?.contents);
+console.log("=== create_arena ===");
+console.log(createArena?.contents);
 
 if (errors.length) {
   console.error("\nSMOKE FAILED:\n" + errors.map((e) => " - " + e).join("\n"));

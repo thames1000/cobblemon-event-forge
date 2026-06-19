@@ -88,6 +88,7 @@ export default function SafariPage() {
   const selected = result.bundle.files.find((f) => f.path === activeFile) ?? result.bundle.files[0];
 
   const patch = (p: Partial<SafariConfig>) => setConfig((c) => ({ ...c, ...p }));
+  const patchArena = (p: Partial<SafariConfig["arena"]>) => setConfig((c) => ({ ...c, arena: { ...c.arena, ...p } }));
   const patchTicket = (p: Partial<SafariConfig["ticket"]>) => setConfig((c) => ({ ...c, ticket: { ...c.ticket, ...p } }));
   const patchReward = (p: Partial<SafariConfig["reward"]>) => setConfig((c) => ({ ...c, reward: { ...c.reward, ...p } }));
 
@@ -214,6 +215,74 @@ export default function SafariPage() {
                 + Biome
               </button>
             </div>
+          </section>
+
+          {/* arena world */}
+          <section className="panel p-5">
+            <div className="mb-1 flex items-center justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">🌍 Arena world</h2>
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-300">
+                <input type="checkbox" className="h-4 w-4 accent-amber-400" checked={config.arena.enabled} onChange={(e) => patchArena({ enabled: e.target.checked })} />
+                Enable
+              </label>
+            </div>
+            <p className="mb-3 text-xs text-slate-500">
+              Spin up a <b>temporary world</b> for the zone via the Resource World mod. A{" "}
+              <code className="text-slate-400">create_arena</code> function makes it (run once); tickets warp players in;{" "}
+              <code className="text-slate-400">uninstall</code> deletes it.
+            </p>
+            {config.arena.enabled && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  {(["single-biome", "mirror"] as const).map((m) => {
+                    const active = config.arena.mode === m;
+                    return (
+                      <button
+                        key={m}
+                        onClick={() => patchArena({ mode: m })}
+                        className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
+                          active ? "border-amber-400/70 bg-amber-400/10 text-amber-200" : "border-[var(--border)] bg-[var(--panel-2)] text-slate-300 hover:border-slate-500"
+                        }`}
+                      >
+                        <div className="font-semibold">{m === "single-biome" ? "Single biome" : "Mirror dimension"}</div>
+                        <div className="text-[11px] text-slate-500">
+                          {m === "single-biome" ? "Whole world is one themed biome" : "Copy a full dimension"}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                {config.arena.mode === "single-biome" ? (
+                  <div>
+                    <label className="field-label">Arena biome</label>
+                    <input
+                      list="dl-biomes"
+                      className="input font-mono text-xs"
+                      placeholder="minecraft:dark_forest"
+                      value={config.arena.biome}
+                      onChange={(e) => patchArena({ biome: e.target.value })}
+                    />
+                    <p className="mt-1.5 text-[11px] text-slate-500">
+                      Generates a one-biome overworld dimension and mirrors it. Keep this biome inside your spawn{" "}
+                      <b>Biomes</b> above so the encounters appear in the arena.
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="field-label">Mirror dimension</label>
+                    <input
+                      className="input font-mono text-xs"
+                      placeholder="minecraft:overworld"
+                      value={config.arena.mirror}
+                      onChange={(e) => patchArena({ mirror: e.target.value })}
+                    />
+                  </div>
+                )}
+                <p className="text-[11px] text-slate-500">
+                  Verify the exact <code>/resourceworld create</code> args against your mod version.
+                </p>
+              </div>
+            )}
           </section>
 
           {/* entry ticket */}

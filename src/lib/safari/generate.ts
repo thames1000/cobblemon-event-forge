@@ -40,6 +40,61 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
     ...buildSpawnFiles({ namespace: ns, eventSlug: slug, weather: config.weather, featured: tieredFeatured(config), biomes: config.biomes }),
   ];
 
+  // --- temporary arena world (Resource World mod) ---
+  if (config.arena.enabled) {
+    const singleBiome = config.arena.mode === "single-biome";
+    // For single-biome, define a one-biome overworld dimension and mirror THAT,
+    // so the whole arena is the safari's biome.
+    let mirrorTarget = config.arena.mirror.trim() || "minecraft:overworld";
+    if (singleBiome) {
+      const biome = config.arena.biome.trim() || "minecraft:plains";
+      mirrorTarget = `${ns}:zone`;
+      datapackFiles.push({
+        path: `data/${ns}/dimension/zone.json`,
+        contents: JSON.stringify(
+          {
+            type: "minecraft:overworld",
+            generator: {
+              type: "minecraft:noise",
+              settings: "minecraft:overworld",
+              biome_source: { type: "minecraft:fixed", biome },
+            },
+          },
+          null,
+          2,
+        ),
+        kind: "dimension",
+        label: "single-biome dimension",
+      });
+    }
+    datapackFiles.push({
+      path: `data/${ns}/function/create_arena.mcfunction`,
+      contents: [
+        `# Create the temporary "${config.title}" arena world (Resource World mod).`,
+        `# Run this ONCE during setup. Syntax may vary by mod version:`,
+        `#   /resourceworld create <id> mirror <dimension> [seed]`,
+        ...(singleBiome ? [`# mirrors the single-biome dimension ${mirrorTarget} defined by this pack`] : []),
+        `resourceworld create ${slug} mirror ${mirrorTarget}`,
+        `tellraw @a ${JSON.stringify({ text: `${config.title} arena world created — players enter with a ticket.`, color: "green" })}`,
+        "",
+      ].join("\n"),
+      kind: "function",
+      label: "create_arena.mcfunction",
+    });
+    datapackFiles.push({
+      path: `data/${ns}/function/uninstall.mcfunction`,
+      contents: [
+        `# Tear down the "${config.title}" safari: delete the temporary arena world,`,
+        `# then remove the datapack and /reload.`,
+        `resourceworld delete ${slug}`,
+        `tellraw @a ${JSON.stringify({ text: `${config.title} arena world deleted.`, color: "gray" })}`,
+        "",
+      ].join("\n"),
+      kind: "function",
+      label: "uninstall.mcfunction",
+    });
+  }
+
   // --- entry ticket (usable item -> enter function) ---
   if (config.ticket.enabled) {
     const enterId = `${ns}:enter_${slug}`;
@@ -59,6 +114,9 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
         `# Runs when a player uses the ${config.title} ticket.`,
         `tellraw @s ${JSON.stringify([{ text: "Welcome to the ", color: "green" }, { text: config.title, color: "gold" }, { text: "!", color: "green" }])}`,
         `tellraw @s ${JSON.stringify({ text: `You have ${config.timeLimitMinutes} minutes. Rules: ${config.rules.join("; ")}`, color: "gray" })}`,
+        ...(config.arena.enabled
+          ? [`# warp the player into the temporary arena world`, `resourceworld tp ${slug}`]
+          : []),
         "",
       ].join("\n"),
       kind: "function",

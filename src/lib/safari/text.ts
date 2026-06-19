@@ -103,8 +103,16 @@ export function buildSafariChecklist(opts: {
   L.push("SETUP");
   L.push(`  1. Upload ${opts.datapackFileName} to <server>/world/datapacks/ and run /reload.`);
   L.push(`  2. Confirm with /datapack list — you should see "${namespace}".`);
-  if (config.biomes.length) L.push(`  3. Spawns are restricted to: ${config.biomes.join(", ")}. Host the safari there.`);
-  else L.push(`  3. Spawns are NOT biome-restricted — they can appear anywhere overworld.`);
+  if (config.arena.enabled) {
+    L.push(`  3. Create the temporary arena world (Resource World mod) — run ONCE:`);
+    L.push(`        /function ${namespace}:create_arena`);
+    L.push(`        (this runs: /resourceworld create ${slug} mirror ${config.arena.mirror.trim() || "minecraft:overworld"})`);
+    L.push(`        Players warp into it automatically when they use a ticket.`);
+  } else if (config.biomes.length) {
+    L.push(`  3. Spawns are restricted to: ${config.biomes.join(", ")}. Host the safari there.`);
+  } else {
+    L.push(`  3. Spawns are NOT biome-restricted — they can appear anywhere overworld.`);
+  }
   L.push(`  4. Post discord_announcement.md, place sign_text.txt at the entrance, and set up an NPC with npc_dialogue.txt.`);
   L.push("");
 
@@ -121,8 +129,13 @@ export function buildSafariChecklist(opts: {
   }
 
   L.push("TEARDOWN");
-  L.push(`  1. Run /function ${namespace}:uninstall (if present), then remove the datapack and /reload.`);
-  L.push(`  2. The zone's spawns stop immediately on reload.`);
+  if (config.arena.enabled) {
+    L.push(`  1. Run /function ${namespace}:uninstall — this deletes the temporary arena world`);
+    L.push(`        (/resourceworld delete ${slug}). Make sure no players are inside first!`);
+    L.push(`  2. Remove the datapack and /reload. Spawns stop immediately.`);
+  } else {
+    L.push(`  1. Remove the datapack and /reload. The zone's spawns stop immediately.`);
+  }
   L.push("");
   return { path: "admin_checklist.txt", contents: L.join("\n") + "\n", kind: "checklist", label: "admin_checklist.txt" };
 }

@@ -18,6 +18,8 @@ export interface SafariTheme {
   rare: string[];
   ultraRare: string[];
   biomes: string[];
+  /** Concrete biome for a single-biome arena (kept inside the spawn `biomes` tag). */
+  arenaBiome: string;
   weather: WeatherTheme;
   rules: string[];
   rewardType: PokeType | "any";
@@ -36,6 +38,7 @@ export const SAFARI_THEMES: SafariTheme[] = [
     rare: ["mimikyu", "dreepy"],
     ultraRare: ["marshadow"],
     biomes: ["#minecraft:is_forest"],
+    arenaBiome: "minecraft:dark_forest",
     weather: "any",
     rules: [...COMMON_RULES, "Reward for catching 10 Ghost-types"],
     rewardType: "ghost",
@@ -50,6 +53,7 @@ export const SAFARI_THEMES: SafariTheme[] = [
     rare: ["charmander"],
     ultraRare: ["moltres", "entei"],
     biomes: ["minecraft:badlands", "minecraft:desert"],
+    arenaBiome: "minecraft:badlands",
     weather: "clear",
     rules: [...COMMON_RULES, "Bring burn heal — it's hot out here"],
     rewardType: "fire",
@@ -64,6 +68,7 @@ export const SAFARI_THEMES: SafariTheme[] = [
     rare: ["gyarados"],
     ultraRare: ["suicune"],
     biomes: ["minecraft:frozen_river", "#minecraft:is_river"],
+    arenaBiome: "minecraft:frozen_river",
     weather: "rain",
     rules: [...COMMON_RULES, "Reward for catching 10 Water-types"],
     rewardType: "water",
@@ -78,6 +83,7 @@ export const SAFARI_THEMES: SafariTheme[] = [
     rare: ["aerodactyl"],
     ultraRare: ["tyranitar"],
     biomes: ["minecraft:badlands", "#minecraft:is_hill"],
+    arenaBiome: "minecraft:eroded_badlands",
     weather: "clear",
     rules: [...COMMON_RULES, "Reward for catching 10 Rock-types"],
     rewardType: "rock",
@@ -92,6 +98,7 @@ export const SAFARI_THEMES: SafariTheme[] = [
     rare: ["garchomp"],
     ultraRare: ["rayquaza"],
     biomes: ["#minecraft:is_mountain"],
+    arenaBiome: "minecraft:jagged_peaks",
     weather: "thunder",
     rules: [...COMMON_RULES, "Reward for catching 8 Dragon-types"],
     rewardType: "dragon",
@@ -106,6 +113,7 @@ export const SAFARI_THEMES: SafariTheme[] = [
     rare: ["pinsir"],
     ultraRare: ["scizor"],
     biomes: ["#minecraft:is_forest", "minecraft:jungle"],
+    arenaBiome: "minecraft:jungle",
     weather: "clear",
     rules: [...COMMON_RULES, "Reward for catching 12 Bug-types"],
     rewardType: "bug",
@@ -120,6 +128,7 @@ export const SAFARI_THEMES: SafariTheme[] = [
     rare: [],
     ultraRare: [],
     biomes: [],
+    arenaBiome: "minecraft:plains",
     weather: "any",
     rules: [...COMMON_RULES],
     rewardType: "any",
@@ -144,6 +153,7 @@ export function configFromSafariTheme(themeId: string): SafariConfig {
     ultraRare: [...t.ultraRare],
     biomes: [...t.biomes],
     weather: t.weather,
+    arena: { enabled: true, mode: "single-biome", mirror: "minecraft:overworld", biome: t.arenaBiome },
     ticket: { enabled: true, baseItem: "minecraft:name_tag", glint: true },
     timeLimitMinutes: 30,
     rules: [...t.rules],
