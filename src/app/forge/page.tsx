@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { EVENT_PRESETS, configFromPreset, BUCKET_DEFAULTS } from "@/lib/catalog/eventTypes";
 import { POKEMON, ALL_TYPES } from "@/lib/catalog/pokemon";
-import { REWARD_ITEMS } from "@/lib/catalog/items";
 import { MC_VERSIONS } from "@/lib/datapack/packMeta";
 import { generateEvent } from "@/lib/event/generate";
 import { balanceWarnings } from "@/lib/event/balance";
@@ -11,6 +10,9 @@ import { zipDatapack, zipAll } from "@/lib/datapack/zip";
 import { DATAPACK_KINDS } from "@/lib/datapack/types";
 import { downloadZip, downloadText } from "@/lib/download";
 import ObjectiveEditor from "@/app/components/ObjectiveEditor";
+import RewardList, { SharedDatalists } from "@/app/components/RewardList";
+import { randomEvent, DIFFICULTIES } from "@/lib/event/randomize";
+import type { Difficulty } from "@/lib/event/randomize";
 import type { EventConfig, Bucket, WeatherTheme, LegendaryTrigger } from "@/lib/event/types";
 
 function PackToggle({
@@ -56,6 +58,12 @@ const BUCKETS: Bucket[] = ["common", "uncommon", "rare", "ultra-rare"];
 export default function ForgePage() {
   const [config, setConfig] = useState<EventConfig>(() => configFromPreset("legendary-hunt"));
   const [activeFile, setActiveFile] = useState<string>("");
+  const [difficulty, setDifficulty] = useState<Difficulty>("normal");
+
+  const generateFull = () => {
+    setConfig(randomEvent(difficulty));
+    setActiveFile("");
+  };
 
   const result = useMemo(() => generateEvent(config), [config]);
   const warnings = useMemo(() => balanceWarnings(config), [config]);
@@ -93,6 +101,7 @@ export default function ForgePage() {
 
   return (
     <div className="px-6 py-8">
+      <SharedDatalists />
       <header className="mb-6">
         <div className="chip mb-3">🔥 Event Forge</div>
         <h1 className="text-2xl font-bold text-slate-100">Build a weekend event</h1>
@@ -100,6 +109,29 @@ export default function ForgePage() {
           Pick a template, tweak the fields, and download a validated datapack plus the reward function, bounties,
           Discord post and upload checklist.
         </p>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--panel)]/60 p-2">
+          <button className="btn-primary" onClick={generateFull} title="Roll a complete event">
+            🎲 Generate full event
+          </button>
+          <span className="text-xs text-slate-500">at difficulty</span>
+          <div className="flex flex-wrap gap-1">
+            {DIFFICULTIES.map((d) => (
+              <button
+                key={d.id}
+                onClick={() => setDifficulty(d.id)}
+                className={`rounded-lg px-2.5 py-1 text-xs transition ${
+                  difficulty === d.id
+                    ? "bg-amber-400/20 text-amber-200"
+                    : "text-slate-400 hover:bg-[var(--panel-2)]"
+                }`}
+              >
+                {d.emoji} {d.label}
+              </button>
+            ))}
+          </div>
+          <span className="ml-auto text-[11px] text-slate-500">fills everything below — then tweak &amp; download</span>
+        </div>
       </header>
 
       {/* preset picker */}
@@ -276,67 +308,51 @@ export default function ForgePage() {
           {/* objectives */}
           <ObjectiveEditor objectives={config.objectives} onChange={(objectives) => patch({ objectives })} />
 
-          {/* rewards */}
+          {/* reward tiers */}
           <section className="panel p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Rewards</h2>
+            <div className="mb-1 flex items-center justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Reward tiers</h2>
               <button
                 className="btn-ghost px-2.5 py-1 text-xs"
-                onClick={() => patch({ rewards: [...config.rewards, { itemId: "cobblemon:rare_candy", count: 1 }] })}
+                onClick={() =>
+                  patch({ rewardTiers: [...config.rewardTiers, { id: `tier${config.rewardTiers.length + 1}`, name: "New tier", actions: [] }] })
+                }
               >
-                + Add
+                + Tier
               </button>
             </div>
-            <div className="space-y-2">
-              {config.rewards.map((r, i) => (
-                <div key={i} className="space-y-2">
-                  <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
-                    <select
-                      className="input"
-                      value={r.itemId}
-                      onChange={(e) => {
-                        const rewards = [...config.rewards];
-                        rewards[i] = { ...r, itemId: e.target.value };
-                        patch({ rewards });
-                      }}
-                    >
-                      {REWARD_ITEMS.map((it) => (
-                        <option key={it.id} value={it.id}>
-                          {it.name}
-                        </option>
-                      ))}
-                      <option value="command">⌨️ Raw command…</option>
-                    </select>
+            <p className="mb-4 text-xs text-slate-500">
+              Event-wide reward bundles you grant by hand (e.g. Participation / Winner). Each becomes a{" "}
+              <code className="text-slate-400">reward_&lt;tier&gt;</code> function.
+            </p>
+            <div className="space-y-3">
+              {config.rewardTiers.map((tier, ti) => (
+                <div key={ti} className="rounded-lg border border-[var(--border)] bg-[var(--panel-2)]/40 p-3">
+                  <div className="mb-2 flex items-center gap-2">
                     <input
-                      type="number"
-                      min={1}
-                      className="input w-20"
-                      value={r.count}
+                      className="input flex-1"
+                      value={tier.name}
                       onChange={(e) => {
-                        const rewards = [...config.rewards];
-                        rewards[i] = { ...r, count: Math.max(1, Number(e.target.value) || 1) };
-                        patch({ rewards });
+                        const rewardTiers = [...config.rewardTiers];
+                        rewardTiers[ti] = { ...tier, name: e.target.value };
+                        patch({ rewardTiers });
                       }}
                     />
                     <button
                       className="btn-ghost px-2 py-1 text-xs"
-                      onClick={() => patch({ rewards: config.rewards.filter((_, j) => j !== i) })}
+                      onClick={() => patch({ rewardTiers: config.rewardTiers.filter((_, j) => j !== ti) })}
                     >
                       ✕
                     </button>
                   </div>
-                  {r.itemId === "command" && (
-                    <input
-                      className="input font-mono text-xs"
-                      placeholder="give @s minecraft:diamond 5"
-                      value={r.rawCommand ?? ""}
-                      onChange={(e) => {
-                        const rewards = [...config.rewards];
-                        rewards[i] = { ...r, rawCommand: e.target.value };
-                        patch({ rewards });
-                      }}
-                    />
-                  )}
+                  <RewardList
+                    rewards={tier.actions}
+                    onChange={(actions) => {
+                      const rewardTiers = [...config.rewardTiers];
+                      rewardTiers[ti] = { ...tier, actions };
+                      patch({ rewardTiers });
+                    }}
+                  />
                 </div>
               ))}
             </div>

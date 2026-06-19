@@ -2,7 +2,14 @@ import { DEFAULT_VERSION } from "../datapack/packMeta";
 import { findSpecies } from "./pokemon";
 import type { PokeType } from "./pokemon";
 import { newObjective } from "../objective/types";
+import type { RewardAction } from "../reward/actions";
 import type { EventConfig, LegendaryTrigger, WeatherTheme } from "../event/types";
+
+/** Map a preset reward [id,count] to a RewardAction (CobbleDollars → command). */
+function rewardActionFor(itemId: string, count: number): RewardAction {
+  if (itemId === "cobbledollars") return { kind: "command", command: `cobbledollars add @s ${count}` };
+  return { kind: "item", itemId, count };
+}
 
 /**
  * Event-type presets. Picking one pre-fills the Forge with a sensible, themed
@@ -185,7 +192,10 @@ export function configFromPreset(presetId: string): EventConfig {
     weather: p.weather,
     featured,
     objectives: p.objectives.map((text, i) => newObjective(`b${i + 1}`, { label: text })),
-    rewards: p.rewards.map(([itemId, count]) => ({ itemId, count })),
+    rewardTiers: [
+      { id: "participation", name: "Participation", actions: [{ kind: "item", itemId: "cobblemon:poke_ball", count: 5 }] },
+      { id: "winner", name: "Winner", actions: p.rewards.map(([itemId, count]) => rewardActionFor(itemId, count)) },
+    ],
     legendaryTrigger: defaultTrigger(p.id, featured),
     pack: {
       includeLoad: true,

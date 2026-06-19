@@ -1,4 +1,5 @@
 import type { EventConfig } from "./types";
+import type { RewardAction } from "../reward/actions";
 import { findReward } from "../catalog/items";
 
 /**
@@ -11,14 +12,20 @@ export interface BalanceWarning {
   message: string;
 }
 
-/** Rough total CobbleDollar value of a reward bundle, for the EV warning. */
+/** Every reward action in the event: tier rewards + per-objective rewards. */
+function allActions(config: EventConfig): RewardAction[] {
+  return [...config.rewardTiers.flatMap((t) => t.actions), ...config.objectives.flatMap((o) => o.rewards)];
+}
+
+/** Rough total CobbleDollar value of all rewards, for the EV warning. */
 export function rewardValue(config: EventConfig): number {
   let total = 0;
-  for (const r of config.rewards) {
-    const meta = findReward(r.itemId);
-    if (!meta) continue;
-    if (meta.category === "currency") total += r.count;
-    else total += (meta.value ?? 0) * Math.max(1, r.count);
+  for (const a of allActions(config)) {
+    if (a.kind === "item") total += (findReward(a.itemId)?.value ?? 0) * Math.max(1, a.count);
+    else if (a.kind === "command") {
+      const m = a.command.match(/cobbledollars\s+add\s+\S+\s+(\d+)/i);
+      if (m) total += Number(m[1]);
+    }
   }
   return total;
 }
@@ -29,14 +36,13 @@ const BATTLE_TOWER_EV = 10000;
 export function balanceWarnings(config: EventConfig): BalanceWarning[] {
   const out: BalanceWarning[] = [];
 
-  for (const r of config.rewards) {
-    const meta = findReward(r.itemId);
-    if (!meta) continue;
-    if (meta.id === "cobblemon:master_ball") {
+  for (const a of allActions(config)) {
+    if (a.kind !== "item") continue;
+    if (a.itemId === "cobblemon:master_ball") {
       out.push({ level: "warn", message: "Master Ball is in the rewards — make sure this event isn't repeatable, or guarantees become trivial." });
     }
-    if (meta.id === "cobblemon:gold_bottle_cap" && r.count > 1) {
-      out.push({ level: "warn", message: `Gold Bottle Cap ×${r.count} is a lot — these hyper-train a perfect IV each.` });
+    if (a.itemId === "cobblemon:gold_bottle_cap" && a.count > 1) {
+      out.push({ level: "warn", message: `Gold Bottle Cap ×${a.count} is a lot — these hyper-train a perfect IV each.` });
     }
   }
 

@@ -2,6 +2,7 @@ import type { GeneratedFile } from "../datapack/types";
 import type { ValidationResult } from "../datapack/validate";
 import type { EventConfig } from "./types";
 import { versionForFormat } from "../datapack/packMeta";
+import { toId } from "../datapack/sanitize";
 import { buildMotd } from "./discord";
 import { legendarySummary } from "./legendary";
 import { EVENT_OBJECTIVE, enabledFlag, legendFlag } from "./lifecycle";
@@ -90,11 +91,15 @@ export function buildChecklist(opts: {
     L.push("");
   }
 
-  L.push("HANDING OUT REWARDS");
-  L.push(`  - The event-wide reward bundle (for winners) is:`);
-  L.push(`        /execute as <player> run function ${opts.namespace}:${opts.slug}_rewards`);
-  L.push(`  - Currency lines assume CobbleDollars — verify the command matches your economy mod.`);
-  L.push("");
+  const tiers = c.rewardTiers.filter((t) => t.actions.length);
+  if (tiers.length) {
+    L.push("REWARD TIERS");
+    for (const t of tiers) {
+      L.push(`  - ${t.name}: /execute as <player> run function ${opts.namespace}:reward_${toId(t.id || t.name)}`);
+    }
+    L.push(`  - Currency lines assume CobbleDollars — verify the command matches your economy mod.`);
+    L.push("");
+  }
 
   L.push("TEARDOWN (after the event)");
   let step = 1;

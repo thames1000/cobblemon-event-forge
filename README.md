@@ -23,7 +23,12 @@ Plus a **Pack Safety / Cleanup** section: safe lifecycle defaults (uninstall + e
 flag, **never a `tick.json`** unless you opt into timed logic) and a live
 **namespace preview** so you always know files land under `data/<namespace>/`.
 
-Two sections are live: the **Event Forge** and the **Reward Crate Builder**
+Three generators are live: the **Event Forge**, the **Reward Crate Builder**, and
+a **Bingo Board** generator (randomized objective grid with tick-free line/blackout
+rewards). The Forge also has a **🎲 Generate Full Event** button with a
+Casual→Chaos difficulty, and **tiered rewards** (Participation / Winner / Champion).
+
+The **Event Forge** and the **Reward Crate Builder**
 (tiers, weighted items, live drop odds + expected-value balance warnings, loot
 tables, and an optional **usable crate-key item** — right-click & hold to open,
 detected tick-free via a `consume_item` advancement). The remaining sections (Bounty Board, Safari Zones, Battle Factory, Item

@@ -1,5 +1,6 @@
 import type { PokeType } from "../catalog/pokemon";
 import type { Objective } from "../objective/types";
+import type { RewardAction } from "../reward/actions";
 
 export type { Objective };
 
@@ -20,13 +21,16 @@ export interface FeaturedMon {
   level: string;
 }
 
-/** A single reward line (item, currency, or raw command). */
-export interface RewardLine {
-  /** Item id from the catalog, "cobbledollars", or "command". */
-  itemId: string;
-  count: number;
-  /** Only used when itemId === "command": a raw mcfunction line. */
-  rawCommand?: string;
+/**
+ * A reward tier — a named bundle of reward actions (e.g. Participation, Winner,
+ * Bronze → Champion). Each tier compiles to its own reward function the owner
+ * runs against the appropriate players.
+ */
+export interface RewardTier {
+  /** Stable id used for the function name. */
+  id: string;
+  name: string;
+  actions: RewardAction[];
 }
 
 /**
@@ -78,7 +82,8 @@ export interface EventConfig {
   weather: WeatherTheme;
   featured: FeaturedMon[];
   objectives: Objective[];
-  rewards: RewardLine[];
+  /** Tiered event-wide rewards (Participation / Winner / …). */
+  rewardTiers: RewardTier[];
   /** Optional auto-spawn-a-legendary mechanic. */
   legendaryTrigger: LegendaryTrigger;
   /** Pack Safety / Cleanup options. */

@@ -4,7 +4,7 @@ import type { EventConfig } from "./types";
 import { toId, toNamespace } from "../datapack/sanitize";
 import { buildPackMeta } from "../datapack/packMeta";
 import { buildSpawnFiles } from "../datapack/spawns";
-import { buildRewardFunction } from "../datapack/mcfunction";
+import { buildTierFiles } from "./tiers";
 import { buildLegendaryFiles } from "./legendary";
 import { buildObjectiveFiles } from "../objective/generate";
 import { buildLifecycleFiles } from "./lifecycle";
@@ -48,11 +48,10 @@ export function generateEvent(config: EventConfig): GenerateResult {
     }),
   );
   datapackFiles.push(
-    buildRewardFunction({
+    ...buildTierFiles({
       namespace,
-      eventSlug: slug,
-      eventTitle: config.title,
-      rewards: config.rewards,
+      tiers: config.rewardTiers,
+      packFormat: config.packFormat,
     }),
   );
   datapackFiles.push(

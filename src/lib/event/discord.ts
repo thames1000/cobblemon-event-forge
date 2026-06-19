@@ -1,7 +1,6 @@
 import type { GeneratedFile } from "../datapack/types";
 import type { EventConfig } from "./types";
 import { findPreset } from "../catalog/eventTypes";
-import { findReward } from "../catalog/items";
 import { findSpecies } from "../catalog/pokemon";
 import { legendarySummary } from "./legendary";
 import { describeObjective } from "../objective/triggers";
@@ -19,14 +18,6 @@ function titleCase(id: string): string {
     .split(/[_\s-]+/)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
-}
-
-function rewardLabel(itemId: string, count: number): string {
-  if (itemId === "command") return "Special reward";
-  const meta = findReward(itemId);
-  const name = meta?.name ?? titleCase(itemId.split(":").pop() ?? itemId);
-  if (meta?.category === "currency") return `${count.toLocaleString()} ${name}`;
-  return count > 1 ? `${name} ×${count}` : name;
 }
 
 function monLabel(species: string): string {
@@ -79,9 +70,12 @@ export function buildDiscordAnnouncement(opts: {
     lines.push("");
   }
 
-  if (c.rewards.length) {
+  const tiersWithRewards = c.rewardTiers.filter((t) => t.actions.length);
+  if (tiersWithRewards.length) {
     lines.push("## Rewards");
-    for (const r of c.rewards) lines.push(`- ${rewardLabel(r.itemId, r.count)}`);
+    for (const t of tiersWithRewards) {
+      lines.push(`**${t.name}:** ${t.actions.map(describeReward).join(", ")}`);
+    }
     lines.push("");
   }
 

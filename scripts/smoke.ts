@@ -30,10 +30,16 @@ cfg.objectives = [
   }),
   newObjective("b2", { mode: "manual", label: "Win the costume contest", rewards: [{ kind: "command", command: "/give @s minecraft:diamond 5" }] }),
 ];
-cfg.rewards = [
-  { itemId: "cobblemon:bottle_cap", count: 1 },
-  { itemId: "cobblemon:ultra_ball", count: 10 },
-  { itemId: "cobbledollars", count: 5000 },
+cfg.rewardTiers = [
+  { id: "participation", name: "Participation", actions: [{ kind: "item", itemId: "cobblemon:poke_ball", count: 5 }] },
+  {
+    id: "winner",
+    name: "Winner",
+    actions: [
+      { kind: "item", itemId: "cobblemon:bottle_cap", count: 1 },
+      { kind: "command", command: "cobbledollars add @s 5000" },
+    ],
+  },
 ];
 
 const { bundle, validation, datapackFileName } = generateEvent(cfg);
@@ -88,6 +94,26 @@ console.log("\n=== sample: advancement ===");
 console.log(adv?.contents);
 console.log("\n=== sample: summon function ===");
 console.log(bundle.files.find((f) => f.path.endsWith("summon_zapdos.mcfunction"))?.contents);
+
+// --- randomizer: every difficulty produces a valid, complete, generatable event ---
+import { randomEvent, DIFFICULTIES } from "../src/lib/event/randomize";
+for (const d of DIFFICULTIES) {
+  const r = generateEvent(randomEvent(d.id));
+  if (!r.validation.ok) errors.push(`randomize(${d.id}): generated an invalid datapack`);
+  if (r.bundle.title.trim() === "") errors.push(`randomize(${d.id}): empty title`);
+  for (const f of r.bundle.files) {
+    if (f.path.endsWith(".json")) {
+      try { JSON.parse(f.contents); } catch { errors.push(`randomize(${d.id}): bad json ${f.path}`); }
+    }
+  }
+}
+
+// --- reward tiers: each non-empty tier => reward_<id> function ---
+if (!bundle.files.some((f) => f.path.endsWith("/function/reward_participation.mcfunction"))) errors.push("tiers: missing participation fn");
+const winnerFn = bundle.files.find((f) => f.path.endsWith("/function/reward_winner.mcfunction"));
+if (!winnerFn) errors.push("tiers: missing winner fn");
+if (winnerFn && !winnerFn.contents.includes("give @s cobblemon:bottle_cap 1")) errors.push("tiers: winner item missing");
+if (winnerFn && !winnerFn.contents.includes("cobbledollars add @s 5000")) errors.push("tiers: winner currency command missing");
 
 // --- objectives: auto compiles to advancement + reward fn; manual = fn only ---
 const advB1 = bundle.files.find((f) => f.path.endsWith("/advancement/bounty_1.json"));
@@ -216,6 +242,35 @@ console.log("\n=== crate key give (1.21.1 / pack 48 → food.eat_seconds) ===");
 console.log(give48?.contents);
 console.log("=== crate key give (1.21.2+ / pack 57 → consumable) ===");
 console.log(give57?.contents);
+
+// ---------------------------------------------------------------------------
+// Bingo board
+// ---------------------------------------------------------------------------
+import { newBingoConfig, centerIndex } from "../src/lib/bingo/board";
+import { generateBingo } from "../src/lib/bingo/generate";
+
+const bingo = newBingoConfig(48);
+const bres = generateBingo(bingo);
+console.log("\n=== BINGO ===");
+console.log("validation ok:", bres.validation.ok, "| files:", bres.bundle.files.length);
+if (!bres.validation.ok) errors.push("bingo: invalid datapack");
+const center = centerIndex(bingo.size, bingo.freeCenter);
+const expectedCells = bingo.size * bingo.size - (center >= 0 ? 1 : 0);
+const cellAdvs = bres.bundle.files.filter((f) => /\/advancement\/cell_\d+\.json$/.test(f.path));
+if (cellAdvs.length !== expectedCells) errors.push(`bingo: expected ${expectedCells} cell advancements, got ${cellAdvs.length}`);
+for (const f of bres.bundle.files) {
+  if (f.path.endsWith(".json")) { try { JSON.parse(f.contents); } catch { errors.push(`bingo: bad json ${f.path}`); } }
+}
+const checkFn = bres.bundle.files.find((f) => f.path.endsWith("/function/check.mcfunction"));
+if (checkFn && !/advancements=\{.*cell_\d+=true.*\}/.test(checkFn.contents)) errors.push("bingo: check missing advancement line test");
+if (checkFn && !checkFn.contents.includes(":win")) errors.push("bingo: check doesn't call win");
+const winFn = bres.bundle.files.find((f) => f.path.endsWith("/function/win.mcfunction"));
+if (winFn && !winFn.contents.includes('"selector":"@s"')) errors.push("bingo: win missing announce");
+if (winFn && !/scoreboard players set @s bingo 1/.test(winFn.contents)) errors.push("bingo: win missing flag set");
+if (!bres.bundle.files.some((f) => f.path === "data/minecraft/tags/function/load.json")) errors.push("bingo: missing load tag");
+if (bres.bundle.files.some((f) => f.path.includes("tags/function/tick.json"))) errors.push("bingo: introduced a tick (should be tick-free!)");
+console.log("first 12 lines of check.mcfunction:");
+console.log(checkFn?.contents.split("\n").slice(0, 12).join("\n"));
 
 if (errors.length) {
   console.error("\nSMOKE FAILED:\n" + errors.map((e) => " - " + e).join("\n"));

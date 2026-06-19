@@ -35,11 +35,7 @@ export function buildBountiesFile(opts: {
       announce: o.announce,
       rewards: o.rewards,
     })),
-    rewards: opts.config.rewards.map((r) => ({
-      item: r.itemId,
-      count: r.count,
-      ...(r.rawCommand ? { command: r.rawCommand } : {}),
-    })),
+    rewardTiers: opts.config.rewardTiers.map((t) => ({ id: t.id, name: t.name, rewards: t.actions })),
   };
   return {
     path: "event_bounties.json",
