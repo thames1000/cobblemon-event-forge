@@ -323,6 +323,18 @@ if (mirrorMode.bundle.files.some((f) => f.path.endsWith("/dimension/zone.json"))
 if (!mirrorMode.bundle.files.some((f) => /resourceworld create .* mirror minecraft:overworld/.test(f.contents))) errors.push("safari: mirror mode create wrong");
 const uninstall = sfres.bundle.files.find((f) => f.path.endsWith("/function/uninstall.mcfunction"));
 if (!uninstall || !/resourceworld delete haunted_woods_safari/.test(uninstall.contents)) errors.push("safari: uninstall delete missing");
+// delete needs confirmation -> must appear TWICE
+if (uninstall && (uninstall.contents.match(/resourceworld delete haunted_woods_safari/g) || []).length < 2)
+  errors.push("safari: delete must run twice (confirmation)");
+// evacuate players via the in_arena predicate (dimension resource_world:<slug>)
+const pred = sfres.bundle.files.find((f) => f.path.endsWith("/predicate/in_arena.json"));
+if (!pred || JSON.parse(pred.contents).predicate?.dimension !== "resource_world:haunted_woods_safari")
+  errors.push("safari: in_arena predicate missing/wrong dimension");
+if (uninstall && !/if predicate haunted_woods_safari:in_arena run resourceworld home/.test(uninstall.contents))
+  errors.push("safari: uninstall doesn't evacuate the arena");
+// created/deleted notifications
+if (createArena && !/arena world created!/.test(createArena.contents)) errors.push("safari: missing created notification");
+if (uninstall && !/arena world deleted\./.test(uninstall.contents)) errors.push("safari: missing deleted notification");
 if (enterFn && !/resourceworld tp haunted_woods_safari/.test(enterFn.contents)) errors.push("safari: enter doesn't warp into arena");
 // entry kit: 30 safari balls
 if (enterFn && !/give @s cobblemon:safari_ball 30/.test(enterFn.contents)) errors.push("safari: enter doesn't give 30 safari balls");

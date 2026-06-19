@@ -19,6 +19,8 @@ export interface SafariGenerateResult {
 
 const SAFARI_DATA_KEY = "safari";
 const TIMER_OBJ = "safari_time";
+/** Resource World names a created world "<this namespace>:<world id>". */
+const RW_NS = "resource_world";
 
 /** Build the tiered featured-mon list (common / rare / ultra-rare). */
 function tieredFeatured(config: SafariConfig): FeaturedMon[] {
@@ -88,13 +90,34 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
             ]
           : []),
         `resourceworld create ${slug} mirror ${mirrorTarget}`,
-        `tellraw @a ${JSON.stringify({ text: `${config.title} arena world created — players enter with a ticket.`, color: "green" })}`,
+        `tellraw @a ${JSON.stringify([{ text: "🌍 ", color: "green" }, { text: `${config.title} arena world created!`, color: "green", bold: true }, { text: " Players enter with a ticket.", color: "green" }])}`,
         "",
       ].join("\n"),
       kind: "function",
       label: "create_arena.mcfunction",
     });
-    uninstallLines.push(`resourceworld delete ${slug}`);
+
+    // predicate: "is this player inside the arena world?" (so uninstall can
+    // evacuate them first — the world can't be removed with players inside).
+    const arenaDim = `${RW_NS}:${slug}`;
+    datapackFiles.push({
+      path: `data/${ns}/predicate/in_arena.json`,
+      contents: JSON.stringify({ condition: "minecraft:location_check", predicate: { dimension: arenaDim } }, null, 2),
+      kind: "predicate",
+      label: "in_arena predicate",
+    });
+
+    // Teardown: send anyone still inside home, then DELETE.
+    // Resource World's delete needs confirmation, so run it twice back-to-back
+    // (1st requests confirmation, 2nd confirms) — a single call won't delete.
+    uninstallLines.push(
+      `# send anyone still inside the arena back home so it can be removed`,
+      `execute as @a at @s if predicate ${ns}:in_arena run resourceworld home`,
+      `# delete needs confirmation — run twice back-to-back (1st asks, 2nd confirms)`,
+      `resourceworld delete ${slug}`,
+      `resourceworld delete ${slug}`,
+      `tellraw @a ${JSON.stringify([{ text: "🗑 ", color: "gray" }, { text: `${config.title} arena world deleted.`, color: "gray", bold: true }])}`,
+    );
   }
 
   // --- per-player countdown timer (1s self-rescheduling loop) ---
@@ -245,7 +268,9 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
       contents: [
         `# Tear down the "${config.title}" safari, then remove the datapack and /reload.`,
         ...uninstallLines,
-        `tellraw @a ${JSON.stringify({ text: `${config.title} torn down.`, color: "gray" })}`,
+        // the arena block already prints its own "deleted" message; only add a
+        // generic confirmation when there's no arena (e.g. timer-only).
+        ...(config.arena.enabled ? [] : [`tellraw @a ${JSON.stringify({ text: `${config.title} torn down.`, color: "gray" })}`]),
         "",
       ].join("\n"),
       kind: "function",
