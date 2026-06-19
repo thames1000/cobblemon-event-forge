@@ -155,7 +155,9 @@ export function configFromSafariTheme(themeId: string): SafariConfig {
     weather: t.weather,
     arena: { enabled: true, mode: "single-biome", mirror: "minecraft:overworld", biome: t.arenaBiome },
     ticket: { enabled: true, baseItem: "minecraft:name_tag", glint: true },
+    safariBalls: 30,
     timeLimitMinutes: 30,
+    timer: { enabled: true, warnings: [15, 5, 1] },
     rules: [...t.rules],
     reward: {
       enabled: t.rewardType !== "any",

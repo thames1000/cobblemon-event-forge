@@ -28,6 +28,17 @@ export interface SafariArena {
   biome: string;
 }
 
+/**
+ * Per-player countdown: starts on entry, warns at the given minute-marks, and
+ * returns the player home (`/resourceworld home`) when it runs out. Implemented
+ * as a 1-second self-rescheduling loop that only runs while someone is inside.
+ */
+export interface SafariTimer {
+  enabled: boolean;
+  /** Minutes-remaining marks to warn at, e.g. [15, 5, 1]. */
+  warnings: number[];
+}
+
 /** Optional "catch N of a type" reward objective for finishing the safari. */
 export interface SafariReward {
   enabled: boolean;
@@ -55,8 +66,12 @@ export interface SafariConfig {
   /** Temporary Resource World arena for the zone. */
   arena: SafariArena;
   ticket: SafariTicket;
-  /** Stated entry time limit (a rule; not auto-enforced). */
+  /** Safari Balls handed out on entry (1.5× catch rate — the in-zone boost). 0 = none. */
+  safariBalls: number;
+  /** Entry time limit in minutes (the timer total; also stated in the rules). */
   timeLimitMinutes: number;
+  /** Enforced countdown + warnings + return-home. */
+  timer: SafariTimer;
   rules: string[];
   reward: SafariReward;
   packFormat: number;

@@ -66,6 +66,10 @@ export function buildSafariDiscord(config: SafariConfig): GeneratedFile {
   if (config.rare.length) L.push(`- **Rare:** ${tierList(config.rare)}`);
   if (config.ultraRare.length) L.push(`- **Ultra-Rare:** ${tierList(config.ultraRare)}`);
   L.push("");
+  if (config.safariBalls > 0) {
+    L.push(`**🎁 On entry:** ${Math.round(config.safariBalls)} free Safari Balls (1.5× catch rate)!`);
+    L.push("");
+  }
   L.push("## Rules");
   config.rules.forEach((r) => L.push(`- ${r}`));
   L.push("");
@@ -119,7 +123,19 @@ export function buildSafariChecklist(opts: {
   if (config.ticket.enabled) {
     L.push("ENTRY TICKETS");
     L.push(`  - Give a player a ticket: /execute as <player> run function ${namespace}:give_${slug}_ticket`);
-    L.push(`  - They right-click & hold it to "enter" (it greets them and states the rules).`);
+    L.push(`  - They right-click & hold it to "enter" (greets them, ${config.arena.enabled ? "warps them in, " : ""}states the rules).`);
+    if (config.safariBalls > 0) {
+      L.push(`  - On entry they get ${Math.round(config.safariBalls)} Safari Balls (1.5x catch rate — the in-zone catch boost).`);
+    }
+    L.push("");
+  }
+  if (config.timer.enabled) {
+    const warns = [...config.timer.warnings].filter((m) => m > 0 && m < config.timeLimitMinutes).sort((a, b) => b - a);
+    L.push("TIMER (enforced)");
+    L.push(`  - On entry a ${config.timeLimitMinutes}-minute countdown starts.`);
+    if (warns.length) L.push(`  - Warnings (with a sound) at: ${warns.map((m) => `${m} min`).join(", ")} remaining.`);
+    L.push(`  - At 0 the player is sent home (/resourceworld home) automatically.`);
+    L.push(`  - Runs as a 1-second loop that only ticks while someone is inside.`);
     L.push("");
   }
   if (config.reward.enabled) {
@@ -129,9 +145,10 @@ export function buildSafariChecklist(opts: {
   }
 
   L.push("TEARDOWN");
-  if (config.arena.enabled) {
-    L.push(`  1. Run /function ${namespace}:uninstall — this deletes the temporary arena world`);
-    L.push(`        (/resourceworld delete ${slug}). Make sure no players are inside first!`);
+  const hasUninstall = config.arena.enabled || config.timer.enabled;
+  if (hasUninstall) {
+    L.push(`  1. Run /function ${namespace}:uninstall —${config.arena.enabled ? ` deletes the temporary arena world (/resourceworld delete ${slug})` : ""}${config.arena.enabled && config.timer.enabled ? " and" : ""}${config.timer.enabled ? " clears timer scores" : ""}.`);
+    if (config.arena.enabled) L.push(`        Make sure no players are inside the arena first!`);
     L.push(`  2. Remove the datapack and /reload. Spawns stop immediately.`);
   } else {
     L.push(`  1. Remove the datapack and /reload. The zone's spawns stop immediately.`);

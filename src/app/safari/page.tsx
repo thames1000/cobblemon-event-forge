@@ -89,6 +89,7 @@ export default function SafariPage() {
 
   const patch = (p: Partial<SafariConfig>) => setConfig((c) => ({ ...c, ...p }));
   const patchArena = (p: Partial<SafariConfig["arena"]>) => setConfig((c) => ({ ...c, arena: { ...c.arena, ...p } }));
+  const patchTimer = (p: Partial<SafariConfig["timer"]>) => setConfig((c) => ({ ...c, timer: { ...c.timer, ...p } }));
   const patchTicket = (p: Partial<SafariConfig["ticket"]>) => setConfig((c) => ({ ...c, ticket: { ...c.ticket, ...p } }));
   const patchReward = (p: Partial<SafariConfig["reward"]>) => setConfig((c) => ({ ...c, reward: { ...c.reward, ...p } }));
 
@@ -296,25 +297,73 @@ export default function SafariPage() {
             </div>
             <p className="mb-3 text-xs text-slate-500">A usable item players hold-to-use to enter (greets them &amp; states the rules).</p>
             {config.ticket.enabled && (
-              <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
-                <div>
-                  <label className="field-label">Icon item</label>
-                  <input list="dl-key-icons" className="input" value={config.ticket.baseItem} onChange={(e) => patchTicket({ baseItem: e.target.value })} />
+              <div className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+                  <div>
+                    <label className="field-label">Icon item</label>
+                    <input list="dl-key-icons" className="input" value={config.ticket.baseItem} onChange={(e) => patchTicket({ baseItem: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="field-label">Time limit (min)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      className="input w-24"
+                      value={config.timeLimitMinutes}
+                      onChange={(e) => patch({ timeLimitMinutes: Math.max(1, Number(e.target.value) || 1) })}
+                    />
+                  </div>
+                  <label className="flex items-end gap-2 pb-2 text-xs text-slate-300">
+                    <input type="checkbox" className="h-4 w-4 accent-amber-400" checked={config.ticket.glint} onChange={(e) => patchTicket({ glint: e.target.checked })} />
+                    Glint
+                  </label>
                 </div>
                 <div>
-                  <label className="field-label">Time limit (min)</label>
+                  <label className="field-label">Safari Balls given on entry</label>
                   <input
                     type="number"
-                    min={1}
-                    className="input w-24"
-                    value={config.timeLimitMinutes}
-                    onChange={(e) => patch({ timeLimitMinutes: Math.max(1, Number(e.target.value) || 1) })}
+                    min={0}
+                    className="input w-28"
+                    value={config.safariBalls}
+                    onChange={(e) => patch({ safariBalls: Math.max(0, Number(e.target.value) || 0) })}
                   />
+                  <p className="mt-1.5 text-[11px] text-slate-500">
+                    Safari Balls have a <b>1.5× catch rate</b> — handing out a stack is the in-zone catch boost. (0 = none.)
+                  </p>
                 </div>
-                <label className="flex items-end gap-2 pb-2 text-xs text-slate-300">
-                  <input type="checkbox" className="h-4 w-4 accent-amber-400" checked={config.ticket.glint} onChange={(e) => patchTicket({ glint: e.target.checked })} />
-                  Glint
-                </label>
+              </div>
+            )}
+          </section>
+
+          {/* timer */}
+          <section className="panel p-5">
+            <div className="mb-1 flex items-center justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">⏱️ Timer (enforced)</h2>
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-300">
+                <input type="checkbox" className="h-4 w-4 accent-amber-400" checked={config.timer.enabled} onChange={(e) => patchTimer({ enabled: e.target.checked })} />
+                Enable
+              </label>
+            </div>
+            <p className="mb-3 text-xs text-slate-500">
+              Starts a {config.timeLimitMinutes}-min countdown on entry and sends the player home
+              (<code>/resourceworld home</code>) when it ends. A 1-second loop that only runs while someone&apos;s inside.
+            </p>
+            {config.timer.enabled && (
+              <div>
+                <label className="field-label">Warn at (minutes remaining)</label>
+                <input
+                  className="input w-40"
+                  value={config.timer.warnings.join(", ")}
+                  onChange={(e) =>
+                    patchTimer({
+                      warnings: e.target.value
+                        .split(",")
+                        .map((s) => parseInt(s.trim(), 10))
+                        .filter((n) => Number.isFinite(n) && n > 0),
+                    })
+                  }
+                />
+                <p className="mt-1.5 text-[11px] text-slate-500">Comma-separated, e.g. 15, 5, 1. Each fires a chat warning + sound.</p>
               </div>
             )}
           </section>

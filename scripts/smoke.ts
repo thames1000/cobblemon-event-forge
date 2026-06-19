@@ -324,6 +324,25 @@ if (!mirrorMode.bundle.files.some((f) => /resourceworld create .* mirror minecra
 const uninstall = sfres.bundle.files.find((f) => f.path.endsWith("/function/uninstall.mcfunction"));
 if (!uninstall || !/resourceworld delete haunted_woods_safari/.test(uninstall.contents)) errors.push("safari: uninstall delete missing");
 if (enterFn && !/resourceworld tp haunted_woods_safari/.test(enterFn.contents)) errors.push("safari: enter doesn't warp into arena");
+// entry kit: 30 safari balls
+if (enterFn && !/give @s cobblemon:safari_ball 30/.test(enterFn.contents)) errors.push("safari: enter doesn't give 30 safari balls");
+// timer: enter sets 1800s + starts loop; tick warns at 900/300/60 + sends home; load creates objective
+if (enterFn && !/scoreboard players set @s safari_time 1800/.test(enterFn.contents)) errors.push("safari: timer not started on enter (1800s)");
+if (enterFn && !/schedule function haunted_woods_safari:safari_tick 1s replace/.test(enterFn.contents)) errors.push("safari: loop not scheduled on enter");
+const tickFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/safari_tick.mcfunction"));
+if (!tickFn) errors.push("safari: missing safari_tick");
+if (tickFn) {
+  for (const s of [900, 300, 60]) if (!new RegExp(`safari_time=${s}\\}`).test(tickFn.contents)) errors.push(`safari: missing ${s}s warning`);
+  if (!/safari_time=0\}.*run function haunted_woods_safari:safari_home/.test(tickFn.contents)) errors.push("safari: tick doesn't send expired players home");
+  if (!/schedule function haunted_woods_safari:safari_tick 1s replace/.test(tickFn.contents)) errors.push("safari: tick doesn't keep the loop alive");
+}
+const homeFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/safari_home.mcfunction"));
+if (!homeFn || !/resourceworld home/.test(homeFn.contents)) errors.push("safari: safari_home doesn't return home");
+const loadFnS = sfres.bundle.files.find((f) => f.path.endsWith("/function/load.mcfunction"));
+if (!loadFnS || !/scoreboard objectives add safari_time dummy/.test(loadFnS.contents)) errors.push("safari: load doesn't create the timer objective");
+if (!sfres.bundle.files.some((f) => f.path === "data/minecraft/tags/function/load.json")) errors.push("safari: missing load tag");
+console.log("\n=== safari_tick ===");
+console.log(tickFn?.contents);
 // arena disabled => no create_arena / uninstall, enter has no tp
 const noArena = generateSafari({ ...safari, arena: { ...safari.arena, enabled: false } });
 if (noArena.bundle.files.some((f) => f.path.endsWith("/function/create_arena.mcfunction"))) errors.push("safari: create_arena present when arena disabled");
