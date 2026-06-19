@@ -1,0 +1,23 @@
+/** Console sections. `ready` ones are built; others render a planned-feature page. */
+export interface NavItem {
+  href: string;
+  label: string;
+  emoji: string;
+  blurb: string;
+  ready: boolean;
+}
+
+export const NAV: NavItem[] = [
+  { href: "/", label: "Home", emoji: "🏠", blurb: "Console overview", ready: true },
+  { href: "/forge", label: "Event Forge", emoji: "🔥", blurb: "Build weekly events, spawns & rewards", ready: true },
+  { href: "/bounties", label: "Bounty Board", emoji: "📋", blurb: "Daily, weekly & community contracts", ready: false },
+  { href: "/crates", label: "Reward Crates", emoji: "🎁", blurb: "Loot tables without hand-writing JSON", ready: true },
+  { href: "/safari", label: "Safari Zones", emoji: "🏕️", blurb: "Themed temporary spawn areas", ready: false },
+  { href: "/battle", label: "Battle Factory", emoji: "⚔️", blurb: "Rulesets, rentals & leaderboards", ready: false },
+  { href: "/items", label: "Item Designer", emoji: "🏷️", blurb: "Named/lore items & /give commands", ready: false },
+  { href: "/quests", label: "Questlines", emoji: "🗺️", blurb: "Mini-RPG arcs (FTB Quests export)", ready: false },
+];
+
+export function navItem(href: string): NavItem | undefined {
+  return NAV.find((n) => n.href === href);
+}
