@@ -115,13 +115,6 @@ export function validateDatapack(files: GeneratedFile[]): ValidationResult {
       }
     }
 
-    // 8d. predicates live under data/<namespace>/predicate/.
-    if (f.kind === "predicate") {
-      if (!/^data\/[a-z0-9_.-]+\/predicate\//.test(f.path)) {
-        issues.push({ severity: "warning", message: "Predicates must live under data/<namespace>/predicate/.", path: f.path });
-      }
-    }
-
     // 8c. dimensions live under data/<namespace>/dimension/.
     if (f.kind === "dimension") {
       if (!/^data\/[a-z0-9_.-]+\/dimension\//.test(f.path)) {

@@ -158,9 +158,10 @@ export function buildSafariChecklist(opts: {
   if (hasUninstall) {
     L.push(`  1. Run /function ${namespace}:uninstall —${config.arena.enabled ? ` deletes the temporary arena world` : ""}${config.arena.enabled && config.timer.enabled ? " and" : ""}${config.timer.enabled ? " clears timer scores" : ""}.`);
     if (config.arena.enabled) {
-      L.push(`        It evacuates anyone inside, then runs /resourceworld delete ${slug} TWICE`);
-      L.push(`        (Resource World's delete needs confirmation — one call only asks).`);
-      L.push(`        Watch for the "🗑 ... deleted" message. If it still lingers, a restart finalizes it.`);
+      L.push(`        Make sure no players are inside the arena first.`);
+      L.push(`        It runs /resourceworld delete ${slug} TWICE (delete needs confirmation —`);
+      L.push(`        one call only asks). Watch the console for "🗑 ... deleted".`);
+      L.push(`        If it still lingers, a server restart finalizes the file removal.`);
     }
     L.push(`  2. Remove the datapack and /reload. Spawns stop immediately.`);
   } else {
