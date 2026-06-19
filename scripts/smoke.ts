@@ -272,6 +272,43 @@ if (bres.bundle.files.some((f) => f.path.includes("tags/function/tick.json"))) e
 console.log("first 12 lines of check.mcfunction:");
 console.log(checkFn?.contents.split("\n").slice(0, 12).join("\n"));
 
+// ---------------------------------------------------------------------------
+// Safari Zone
+// ---------------------------------------------------------------------------
+import { configFromSafariTheme } from "../src/lib/catalog/safariThemes";
+import { generateSafari } from "../src/lib/safari/generate";
+
+const safari = configFromSafariTheme("haunted-woods");
+const sfres = generateSafari(safari);
+console.log("\n=== SAFARI: Haunted Woods ===");
+for (const f of sfres.bundle.files) console.log(`[${DATAPACK_KINDS.has(f.kind) ? "datapack" : "side-car"}] ${f.path}`);
+console.log("validation ok:", sfres.validation.ok);
+if (!sfres.validation.ok) errors.push("safari: invalid datapack");
+for (const f of sfres.bundle.files) {
+  if (f.path.endsWith(".json")) { try { JSON.parse(f.contents); } catch { errors.push(`safari: bad json ${f.path}`); } }
+}
+// spawns carry the biome condition
+const gastly = sfres.bundle.files.find((f) => f.path.endsWith("spawn_pool_world/gastly.json"));
+if (gastly && !/"biomes"\s*:\s*\[\s*"#minecraft:is_forest"/.test(gastly.contents)) errors.push("safari: spawn missing biome condition");
+// entry ticket: advancement + give + enter
+if (!sfres.bundle.files.some((f) => f.path.endsWith("/advancement/use_haunted_woods_safari.json"))) errors.push("safari: missing ticket advancement");
+const enterFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/enter_haunted_woods_safari.mcfunction"));
+if (!enterFn || !enterFn.contents.includes("Welcome to the")) errors.push("safari: missing/empty enter function");
+const giveTicket = sfres.bundle.files.find((f) => /give_.*_ticket\.mcfunction$/.test(f.path));
+if (!giveTicket || !/give @s minecraft:name_tag\[.*safari:"haunted_woods_safari"/.test(giveTicket.contents)) errors.push("safari: ticket give command wrong");
+// reward objective advancement (catch ghost)
+const rewardAdv = sfres.bundle.files.find((f) => f.path.endsWith("/advancement/bounty_1.json"));
+if (rewardAdv) {
+  const d = JSON.parse(rewardAdv.contents);
+  if (d.criteria?.done?.conditions?.type !== "ghost") errors.push("safari: reward objective wrong type");
+}
+// side-cars present
+for (const p of ["safari_rules.txt", "npc_dialogue.txt", "sign_text.txt", "discord_announcement.md", "admin_checklist.txt"]) {
+  if (!sfres.bundle.files.some((f) => f.path === p)) errors.push(`safari: missing side-car ${p}`);
+}
+console.log("\n=== enter function ===");
+console.log(enterFn?.contents);
+
 if (errors.length) {
   console.error("\nSMOKE FAILED:\n" + errors.map((e) => " - " + e).join("\n"));
   process.exit(1);

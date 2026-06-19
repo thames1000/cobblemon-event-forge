@@ -54,8 +54,12 @@ export function buildSpawnFiles(opts: {
   eventSlug: string;
   weather: WeatherTheme;
   featured: FeaturedMon[];
+  /** Optional biome ids/tags to restrict spawns to (e.g. "#minecraft:is_forest"). */
+  biomes?: string[];
 }): GeneratedFile[] {
-  const cond = weatherCondition(opts.weather);
+  const weather = weatherCondition(opts.weather);
+  const biomes = (opts.biomes ?? []).map((b) => b.trim()).filter(Boolean);
+  const cond = { ...weather, ...(biomes.length ? { biomes } : {}) };
   return opts.featured.map((mon) => {
     const speciesId = toId(mon.species);
     const spawn = {

@@ -23,9 +23,10 @@ Plus a **Pack Safety / Cleanup** section: safe lifecycle defaults (uninstall + e
 flag, **never a `tick.json`** unless you opt into timed logic) and a live
 **namespace preview** so you always know files land under `data/<namespace>/`.
 
-Three generators are live: the **Event Forge**, the **Reward Crate Builder**, and
-a **Bingo Board** generator (randomized objective grid with tick-free line/blackout
-rewards). The Forge also has a **🎲 Generate Full Event** button with a
+Four generators are live: the **Event Forge**, the **Reward Crate Builder**, a
+**Bingo Board** generator (randomized objective grid with tick-free line/blackout
+rewards), and a **Safari Zone** generator (themed tiered spawns, biome-locking, a
+usable entry ticket, a catch reward, plus rules / NPC / sign / announcement text). The Forge also has a **🎲 Generate Full Event** button with a
 Casual→Chaos difficulty, and **tiered rewards** (Participation / Winner / Champion).
 
 The **Event Forge** and the **Reward Crate Builder**
