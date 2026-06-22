@@ -1,0 +1,9 @@
+.gradle/
+build/
+run/
+# Cobblemon jar is copied in locally per-machine; don't commit it.
+libs/*.jar
+!libs/.gitkeep
+# IDE
+.idea/
+*.iml

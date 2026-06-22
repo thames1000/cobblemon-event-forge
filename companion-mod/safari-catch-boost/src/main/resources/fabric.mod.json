@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "safari_catch_boost",
+  "version": "${version}",
+  "name": "Safari Catch Boost",
+  "description": "Boosts Poké Ball catch rate inside Cobblemon Safari Zone arena dimensions. Companion to the Event Forge Safari generator.",
+  "authors": ["Event Forge"],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      {
+        "adapter": "kotlin",
+        "value": "com.eventforge.safariboost.SafariCatchBoost"
+      }
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-language-kotlin": "*",
+    "cobblemon": "*"
+  }
+}

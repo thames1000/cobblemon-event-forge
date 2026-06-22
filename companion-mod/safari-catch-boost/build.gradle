@@ -1,0 +1,65 @@
+plugins {
+    // Loom must be >= 1.10 (needs Gradle >= 8.12, see gradle-wrapper.properties): that's
+    // when Loom switched to the org.jetbrains.kotlin:kotlin-metadata-jvm artifact used
+    // below. Older Loom (1.7.x) used the discontinued kotlinx-metadata-jvm, capped at
+    // Kotlin metadata format 2.0.0.
+    id 'fabric-loom' version '1.10.5'
+
+    // The Kotlin plugin version MUST be >= the Kotlin metadata format of every mod Loom
+    // remaps. Loom picks its kotlin-metadata-jvm writer by reading THIS plugin's version
+    // (KotlinPluginUtils.getKotlinPluginVersion), so a too-old value makes Loom fail with
+    // "cannot write metadata for future compiler versions". Our deps need: Cobblemon
+    // 1.7.3 -> 2.2.0, fabric-language-kotlin 1.13.x -> 2.3.0. 2.3.20 covers both and also
+    // matches the Kotlin our target server runs (fabric-language-kotlin 1.13.10+kotlin.2.3.20).
+    id 'org.jetbrains.kotlin.jvm' version '2.3.20'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+    maven { url = "https://maven.fabricmc.net/" }
+    // Cobblemon is supplied as a local jar from libs/ (see README) so the build
+    // always matches the EXACT Cobblemon your server runs.
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
+
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    modImplementation "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
+
+    // Cobblemon — drop your server's cobblemon jar into ./libs/ and set its exact
+    // filename in gradle.properties (cobblemon_jar). `modCompileOnly` makes Loom
+    // remap it into the dev mappings so our code compiles against it; it is NOT
+    // bundled into our output jar (the server already has Cobblemon installed).
+    modCompileOnly files("libs/${project.cobblemon_jar}")
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+    withSourcesJar()
+}
+
+kotlin {
+    jvmToolchain(21)
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 21
+}

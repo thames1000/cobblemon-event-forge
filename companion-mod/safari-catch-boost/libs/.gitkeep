@@ -1,0 +1,2 @@
+# Drop your server's Cobblemon jar here (e.g. cobblemon-fabric-1.6.1.jar),
+# then set its filename in gradle.properties -> cobblemon_jar.
