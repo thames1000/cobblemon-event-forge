@@ -11,9 +11,11 @@ import type { RewardAction } from "@/lib/reward/actions";
 export default function ObjectiveEditor({
   objectives,
   onChange,
+  title = "Bounties / objectives",
 }: {
   objectives: Objective[];
   onChange: (next: Objective[]) => void;
+  title?: string;
 }) {
   const counter = useRef(1000);
   const nextId = () => `o${counter.current++}`;
@@ -29,7 +31,7 @@ export default function ObjectiveEditor({
   return (
     <section className="panel p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Bounties / objectives</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{title}</h2>
         <div className="flex gap-2">
           <button className="btn-ghost px-2.5 py-1 text-xs" onClick={() => add("auto")}>
             + Auto

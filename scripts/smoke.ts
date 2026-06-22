@@ -8,6 +8,9 @@ import { generateBattleFactory } from "../src/lib/battle/generate";
 import type { BattleConfig } from "../src/lib/battle/types";
 import { generateBattleTower } from "../src/lib/battle/tower";
 import type { TowerConfig } from "../src/lib/battle/tower";
+import { generateBountyBoard } from "../src/lib/bounty/generate";
+import { newCommunityGoal } from "../src/lib/bounty/types";
+import type { BountyConfig } from "../src/lib/bounty/types";
 
 // catalog: the full National Dex (#1–1025) with Cobblemon-style ids + legendary flags
 const errors: string[] = [];
@@ -539,6 +542,53 @@ if (idAdv) {
 }
 console.log("\n=== tower: floor_5 function ===");
 console.log(tf5?.contents);
+
+// === Bounty Board ===
+const bbcfg: BountyConfig = {
+  title: "Weekly Bounties", packFormat: 48, boardItem: true,
+  daily: [newObjective("d1", { mode: "auto", triggerId: "cobblemon:catch_pokemon", count: 10, pokemonType: "electric", announce: true, rewards: [{ kind: "item", itemId: "cobblemon:rare_candy", count: 2 }] })],
+  weekly: [newObjective("w1", { mode: "auto", triggerId: "cobblemon:battles_won", count: 20, rewards: [{ kind: "item", itemId: "obc:bottle_cap", count: 1 }] })],
+  special: [],
+  community: [{ ...newCommunityGoal("c1"), label: "Catch a Water-type", count: 1, pokemonType: "water", targetPlayers: 25, rewards: [{ kind: "crate-key", crateName: "Fishing Crate", baseItem: "minecraft:nether_star", glint: true }] }],
+};
+const bb = generateBountyBoard(bbcfg);
+const bbf = (s: string) => bb.bundle.files.find((f) => f.path.endsWith(s));
+if (!bb.validation.ok) errors.push("bounty: invalid datapack");
+if (bb.bountyCount !== 2) errors.push(`bounty: expected 2 individual bounties, got ${bb.bountyCount}`);
+// individual bounties reuse the objective machinery (flat bounty_<n>)
+const b1 = bbf("/function/bounty_1.mcfunction");
+if (!b1 || !/give @s cobblemon:rare_candy 2/.test(b1.contents)) errors.push("bounty: bounty_1 reward missing");
+if (!bbf("/advancement/bounty_1.json")) errors.push("bounty: bounty_1 advancement missing");
+// community goal: contribute → guarded complete → grant-to-all
+const cAdv = bbf("/advancement/community_1.json");
+if (!cAdv || JSON.parse(cAdv.contents).rewards?.function !== "weekly_bounties:community_1_contribute") errors.push("bounty: community advancement not wired");
+const cContrib = bbf("/function/community_1_contribute.mcfunction");
+if (!cContrib || !/scoreboard players add #c1 bounty_comm 1/.test(cContrib.contents)) errors.push("bounty: community contribute doesn't bump the counter");
+if (!cContrib || !/execute if score #c1 bounty_comm matches 25\.\. unless score #d1 bounty_comm matches 1 run function weekly_bounties:community_1_complete/.test(cContrib.contents))
+  errors.push("bounty: community contribute missing the guarded completion check");
+const cComplete = bbf("/function/community_1_complete.mcfunction");
+if (!cComplete || !/scoreboard players set #d1 bounty_comm 1/.test(cComplete.contents) || !/execute as @a run function weekly_bounties:community_1_grant/.test(cComplete.contents))
+  errors.push("bounty: community complete doesn't lock + grant to all");
+const cGrant = bbf("/function/community_1_grant.mcfunction");
+if (!cGrant || !/give @s minecraft:nether_star\[.*cobble_crate:"fishing_crate"/.test(cGrant.contents)) errors.push("bounty: community grant missing the reward");
+// load sets up + initializes the community counter
+const bbload = bbf("/function/load.mcfunction");
+if (!bbload || !/scoreboard objectives add bounty_comm dummy/.test(bbload.contents) || !/scoreboard players set #c1 bounty_comm 0/.test(bbload.contents))
+  errors.push("bounty: load doesn't set up the community counter");
+// /board shows live community progress via a score component
+const board = bbf("/function/board.mcfunction");
+if (!board || !/"score":\{"name":"#c1","objective":"bounty_comm"\}/.test(board.contents)) errors.push("bounty: board missing live community progress");
+// reusable board item: open shows board, re-gives the item, re-arms
+const openB = bbf("/function/open_board.mcfunction");
+if (!openB || !/function weekly_bounties:board/.test(openB.contents) || !/give @s minecraft:paper\[/.test(openB.contents) || !/advancement revoke @s only weekly_bounties:use_weekly_bounties_board/.test(openB.contents))
+  errors.push("bounty: open_board not reusable (board + re-give + re-arm)");
+if (!bbf("/advancement/use_weekly_bounties_board.json")) errors.push("bounty: missing board-item advancement");
+if (!bb.bundle.files.some((f) => f.path === "bounties.json")) errors.push("bounty: missing bounties.json sidecar");
+// boardItem off → no board-item plumbing
+if (generateBountyBoard({ ...bbcfg, boardItem: false }).bundle.files.some((f) => /open_board|give_board|use_weekly_bounties_board/.test(f.path)))
+  errors.push("bounty: board-item files present when boardItem off");
+console.log("\n=== bounty: board + community_1_contribute ===");
+console.log(board?.contents + "\n---\n" + cContrib?.contents);
 
 if (errors.length) {
   console.error("\nSMOKE FAILED:\n" + errors.map((e) => " - " + e).join("\n"));
