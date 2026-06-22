@@ -4,6 +4,8 @@ import { validateDatapack } from "../src/lib/datapack/validate";
 import { DATAPACK_KINDS } from "../src/lib/datapack/types";
 import { newObjective } from "../src/lib/objective/types";
 import { POKEMON, findSpecies } from "../src/lib/catalog/pokemon";
+import { generateBattleFactory } from "../src/lib/battle/generate";
+import type { BattleConfig } from "../src/lib/battle/types";
 
 // catalog: the full National Dex (#1–1025) with Cobblemon-style ids + legendary flags
 const errors: string[] = [];
@@ -440,6 +442,63 @@ console.log("\n=== enter function ===");
 console.log(enterFn?.contents);
 console.log("=== warp function ===");
 console.log(warpFn?.contents);
+
+// === Battle Factory (rental-team generator) ===
+const bcfg: BattleConfig = {
+  title: "Frontier Factory", format: "singles", level: 50, teamSize: 3, poolSize: 12,
+  draftMode: "runtime", theme: "balanced", themeType: "fire", difficulty: "competitive",
+  seed: 777, bannedSpecies: [], clauses: ["Species Clause"], draftItem: true, packFormat: 48,
+};
+const file = (b: ReturnType<typeof generateBattleFactory>, suffix: string) => b.bundle.files.find((f) => f.path.endsWith(suffix));
+
+// --- RUNTIME mode (default): pool baked, team assembled in-game ---
+const bf = generateBattleFactory(bcfg);
+if (!bf.validation.ok) errors.push("battle: invalid datapack (runtime)");
+if (bf.pool.length !== 12) errors.push(`battle: expected 12-set pool, got ${bf.pool.length}`);
+if (new Set(bf.pool.map((m) => m.species)).size !== bf.pool.length) errors.push("battle: pool has duplicate species");
+if (bf.bundle.files.some((f) => /\/function\/give_team_/.test(f.path))) errors.push("battle: runtime mode should not bake give_team functions");
+const bload = file(bf, "/function/load.mcfunction");
+if (!bload || !/scoreboard objectives add battle_rng dummy/.test(bload.contents)) errors.push("battle: load doesn't create the rng objective");
+if (!bload || !/data modify storage frontier_factory:draft pool set value \[/.test(bload.contents)) errors.push("battle: load doesn't seed the set pool");
+const bdr = file(bf, "/function/draft_random.mcfunction");
+if (!bdr || !/data modify storage frontier_factory:draft work set from storage frontier_factory:draft pool/.test(bdr.contents)) errors.push("battle: draft_random doesn't copy the pool to a working list");
+if (bdr && (bdr.contents.match(/function frontier_factory:draft_pick/g) ?? []).length !== 3) errors.push("battle: draft_random should call draft_pick teamSize (3) times");
+const bpick = file(bf, "/function/draft_pick.mcfunction");
+if (!bpick || !/execute store result score #len battle_rng run data get storage frontier_factory:draft work/.test(bpick.contents)) errors.push("battle: draft_pick missing the list-length read");
+const broll = file(bf, "/function/draft_roll.mcfunction");
+if (!broll || !/\$execute store result storage frontier_factory:draft r int 1 run random value 0\.\.\$\(m\)/.test(broll.contents)) errors.push("battle: draft_roll macro malformed");
+const bgive = file(bf, "/function/draft_give.mcfunction");
+if (!bgive || !/\$givepokemonother @s \$\(set\)/.test(bgive.contents)) errors.push("battle: draft_give macro malformed");
+// the baked pool entries are well-formed property strings with verified keys
+if (bload && !/"[a-z0-9]+ level=50 nature=\w+ ability=\w+ held_item=cobblemon:\w+ min_perfect_ivs=6 (attack_ev|special_attack_ev)=252/.test(bload.contents))
+  errors.push("battle: pooled set string malformed / missing verified property keys");
+if (!file(bf, "/advancement/use_frontier_factory_draft.json")) errors.push("battle: missing draft-ticket advancement");
+if (!bf.bundle.files.some((f) => f.path === "team_sheets.txt")) errors.push("battle: missing team-sheet sidecar");
+// determinism: same seed → identical pool seed line
+const bload2 = file(generateBattleFactory(bcfg), "/function/load.mcfunction");
+if (bload && bload2 && bload.contents !== bload2.contents) errors.push("battle: generation not deterministic for a fixed seed");
+// monotype: every pooled rental shares the type; casual: no EVs / perfect IVs
+const bmono = generateBattleFactory({ ...bcfg, theme: "monotype", themeType: "water" });
+if (bmono.pool.some((m) => !m.types.includes("water"))) errors.push("battle: monotype pool has off-type mons");
+const bcas = generateBattleFactory({ ...bcfg, difficulty: "casual" });
+if (bcas.pool.some((m) => m.minPerfectIvs !== 0 || Object.keys(m.evs).length > 0)) errors.push("battle: casual rentals should have no EVs/perfect IVs");
+// draftItem off → no ticket plumbing
+if (generateBattleFactory({ ...bcfg, draftItem: false }).bundle.files.some((f) => /draft_token|use_frontier_factory_draft|give_draft_ticket/.test(f.path)))
+  errors.push("battle: ticket files present when draftItem off");
+
+// --- FIXED mode: pre-built teams; draft picks one ---
+const bff = generateBattleFactory({ ...bcfg, draftMode: "fixed", poolSize: 4 });
+if (!bff.validation.ok) errors.push("battle: invalid datapack (fixed)");
+if (bff.teams.length !== 4 || bff.teams.some((t) => t.mons.length !== 3)) errors.push("battle: fixed mode wrong team shape");
+if (bff.teams.some((t) => new Set(t.mons.map((m) => m.species)).size !== t.mons.length)) errors.push("battle: Species Clause violated in a fixed team");
+const bg1 = file(bff, "/function/give_team_1.mcfunction");
+if (!bg1 || !/givepokemonother @s [a-z0-9]+ level=50 nature=\w+ ability=\w+ held_item=cobblemon:\w+ min_perfect_ivs=6/.test(bg1.contents))
+  errors.push("battle: fixed give_team_1 missing a well-formed givepokemonother line");
+const bffdraft = file(bff, "/function/draft_random.mcfunction");
+if (!bffdraft || !/random value 1\.\.4/.test(bffdraft.contents)) errors.push("battle: fixed draft_random missing the team roll");
+if (bff.bundle.files.some((f) => /\/function\/draft_(pick|roll|extract|give)\./.test(f.path))) errors.push("battle: fixed mode should not emit runtime draft macros");
+console.log("\n=== battle: runtime draft_random + draft_pick ===");
+console.log(bdr?.contents + "\n---\n" + bpick?.contents);
 
 if (errors.length) {
   console.error("\nSMOKE FAILED:\n" + errors.map((e) => " - " + e).join("\n"));
