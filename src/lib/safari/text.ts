@@ -119,6 +119,10 @@ export function buildSafariChecklist(opts: {
     L.push(`  ${s++}. The arena dimension ${namespace}:zone is ready after the restart — no extra`);
     L.push(`        setup. Tickets warp players in (and back out) with VANILLA teleports, so`);
     L.push(`        no Resource World mod and no op-level permissions are required.`);
+    if (config.arena.exclusive !== false) {
+      L.push(`        EXCLUSIVE SPAWNS: the arena uses a custom biome, so ONLY your selected`);
+      L.push(`        Pokémon spawn there (no default Cobblemon spawns, no vanilla mobs).`);
+    }
   } else if (config.biomes.length) {
     L.push(`  ${s++}. Spawns are restricted to: ${config.biomes.join(", ")}. Host the safari there.`);
   } else {
@@ -140,9 +144,18 @@ export function buildSafariChecklist(opts: {
     const warns = [...config.timer.warnings].filter((m) => m > 0 && m < config.timeLimitMinutes).sort((a, b) => b - a);
     L.push("TIMER (enforced)");
     L.push(`  - On entry a ${config.timeLimitMinutes}-minute countdown starts.`);
+    if (config.timer.bossbar !== false)
+      L.push(`  - A boss bar at the top of the player's screen shows their time left (M:SS), no client mod needed.`);
     if (warns.length) L.push(`  - Warnings (with a sound) at: ${warns.map((m) => `${m} min`).join(", ")} remaining.`);
     L.push(`  - At 0 the player is returned to exactly where they entered from, automatically.`);
     L.push(`  - Runs as a 1-second loop that only ticks while someone is inside.`);
+    L.push("");
+  }
+  if (config.leaveEarly !== false && config.ticket.enabled && (config.arena.enabled || config.timer.enabled)) {
+    L.push("LEAVE EARLY");
+    L.push(`  - On entry players also get a one-use "Leave ${config.title}" clock.`);
+    L.push(`  - Right-click & hold it to exit early — returns them home and ends their timer.`);
+    L.push(`  - Works for non-op players (advancement reward function, no permissions needed).`);
     L.push("");
   }
   if (config.reward.enabled) {

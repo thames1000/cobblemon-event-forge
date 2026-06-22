@@ -283,6 +283,22 @@ export default function SafariPage() {
                 <p className="text-[11px] text-slate-500">
                   Players enter via vanilla <code>spreadplayers</code> and are returned to where they came from on exit.
                 </p>
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-300">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-amber-400"
+                    checked={config.arena.exclusive !== false}
+                    onChange={(e) => patchArena({ exclusive: e.target.checked })}
+                  />
+                  Exclusive spawns — only your selected Pokémon spawn here (custom biome, no vanilla mobs)
+                </label>
+                {config.arena.exclusive !== false && (
+                  <p className="text-[11px] text-amber-400/90">
+                    A custom arena biome is generated that <b>copies the look</b> of the “Arena biome” above (trees, fog, grass colour)
+                    but spawns <b>only your selected Pokémon</b> — no vanilla mobs, no default Cobblemon spawns. The spawn “Biomes”
+                    list is ignored inside the zone. (Special-floor biomes like badlands/peaks keep a grass floor.)
+                  </p>
+                )}
               </div>
             )}
           </section>
@@ -332,6 +348,15 @@ export default function SafariPage() {
                     Safari Balls have a <b>1.5× catch rate</b> — handing out a stack is the in-zone catch boost. (0 = none.)
                   </p>
                 </div>
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-300">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-amber-400"
+                    checked={config.leaveEarly !== false}
+                    onChange={(e) => patch({ leaveEarly: e.target.checked })}
+                  />
+                  Give a “leave early” item (a clock — lets players exit before the timer ends, no op needed)
+                </label>
               </div>
             )}
           </section>
@@ -350,21 +375,32 @@ export default function SafariPage() {
               where they entered from when it ends. A 1-second loop that only runs while someone&apos;s inside.
             </p>
             {config.timer.enabled && (
-              <div>
-                <label className="field-label">Warn at (minutes remaining)</label>
-                <input
-                  className="input w-40"
-                  value={config.timer.warnings.join(", ")}
-                  onChange={(e) =>
-                    patchTimer({
-                      warnings: e.target.value
-                        .split(",")
-                        .map((s) => parseInt(s.trim(), 10))
-                        .filter((n) => Number.isFinite(n) && n > 0),
-                    })
-                  }
-                />
-                <p className="mt-1.5 text-[11px] text-slate-500">Comma-separated, e.g. 15, 5, 1. Each fires a chat warning + sound.</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="field-label">Warn at (minutes remaining)</label>
+                  <input
+                    className="input w-40"
+                    value={config.timer.warnings.join(", ")}
+                    onChange={(e) =>
+                      patchTimer({
+                        warnings: e.target.value
+                          .split(",")
+                          .map((s) => parseInt(s.trim(), 10))
+                          .filter((n) => Number.isFinite(n) && n > 0),
+                      })
+                    }
+                  />
+                  <p className="mt-1.5 text-[11px] text-slate-500">Comma-separated, e.g. 15, 5, 1. Each fires a chat warning + sound.</p>
+                </div>
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-300">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-amber-400"
+                    checked={config.timer.bossbar !== false}
+                    onChange={(e) => patchTimer({ bossbar: e.target.checked })}
+                  />
+                  On-screen boss bar (top of screen, counts down M:SS — no client mod)
+                </label>
               </div>
             )}
           </section>

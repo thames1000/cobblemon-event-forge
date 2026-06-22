@@ -27,6 +27,14 @@ export interface SafariArena {
   mirror: string;
   /** Biome id for the single-biome arena (e.g. "minecraft:dark_forest"). */
   biome: string;
+  /**
+   * Exclusive spawns: generate a custom, Cobblemon-tagless biome for the arena so
+   * NONE of Cobblemon's default biome spawns apply there — only the safari's
+   * selected Pokémon spawn (conditioned to that biome). Also disables vanilla mob
+   * spawns inside the arena. Defaults to on; set false to fall back to the themed
+   * vanilla biome where the selected Pokémon are merely boosted on top of defaults.
+   */
+  exclusive?: boolean;
 }
 
 /**
@@ -38,6 +46,13 @@ export interface SafariTimer {
   enabled: boolean;
   /** Minutes-remaining marks to warn at, e.g. [15, 5, 1]. */
   warnings: number[];
+  /**
+   * Show each player a persistent boss bar at the top of their screen counting
+   * down their remaining time (M:SS, shrinks as time runs out, turns red in the
+   * final minute). Pure vanilla `bossbar` commands — no client mod required.
+   * Defaults to on; set false to keep chat-only warnings.
+   */
+  bossbar?: boolean;
 }
 
 /** Optional "catch N of a type" reward objective for finishing the safari. */
@@ -73,6 +88,13 @@ export interface SafariConfig {
   timeLimitMinutes: number;
   /** Enforced countdown + warnings + return-home. */
   timer: SafariTimer;
+  /**
+   * Give players a one-use "leave early" item on entry so they can exit before
+   * the timer ends (returns them home / stops their countdown). Works for non-op
+   * players via an advancement reward function. Defaults to on. Requires a ticket
+   * (to hand the item out) and an arena or timer (something to leave).
+   */
+  leaveEarly?: boolean;
   rules: string[];
   reward: SafariReward;
   packFormat: number;

@@ -122,6 +122,13 @@ export function validateDatapack(files: GeneratedFile[]): ValidationResult {
       }
     }
 
+    // 8c-bis. worldgen (e.g. custom biomes) lives under data/<namespace>/worldgen/.
+    if (f.kind === "worldgen") {
+      if (!/^data\/[a-z0-9_.-]+\/worldgen\//.test(f.path)) {
+        issues.push({ severity: "warning", message: "Worldgen files must live under data/<namespace>/worldgen/.", path: f.path });
+      }
+    }
+
     // 8. functions: 1.21+ uses the singular "function" folder.
     if (f.kind === "function") {
       if (!f.path.endsWith(".mcfunction")) {
