@@ -11,6 +11,9 @@ import type { TowerConfig } from "../src/lib/battle/tower";
 import { generateBountyBoard } from "../src/lib/bounty/generate";
 import { newCommunityGoal } from "../src/lib/bounty/types";
 import type { BountyConfig } from "../src/lib/bounty/types";
+import { generateItems, giveCommand } from "../src/lib/item/generate";
+import { newItem } from "../src/lib/item/types";
+import type { ItemConfig } from "../src/lib/item/types";
 
 // catalog: the full National Dex (#1–1025) with Cobblemon-style ids + legendary flags
 const errors: string[] = [];
@@ -589,6 +592,36 @@ if (generateBountyBoard({ ...bbcfg, boardItem: false }).bundle.files.some((f) =>
   errors.push("bounty: board-item files present when boardItem off");
 console.log("\n=== bounty: board + community_1_contribute ===");
 console.log(board?.contents + "\n---\n" + cContrib?.contents);
+
+// === Item Designer ===
+const itemcfg: ItemConfig = {
+  title: "Event Items", packFormat: 48,
+  items: [
+    { ...newItem("i1"), baseItem: "minecraft:name_tag", name: "Safari Ticket", nameColor: "green", glint: true, rarity: "rare", count: 1, lore: [{ text: "Enter the zone", color: "gray" }] },
+    { ...newItem("i2"), baseItem: "minecraft:blaze_rod", name: "Legendary Lure", nameColor: "gold", unbreakable: true, customModelData: 7, count: 2, lore: [] },
+    { ...newItem("i3"), baseItem: "minecraft:paper", name: "Safari Ticket", nameColor: "green", count: 1, lore: [] }, // dup name → distinct file
+  ],
+};
+const items = generateItems(itemcfg);
+if (!items.validation.ok) errors.push("item: invalid datapack");
+if (items.itemCount !== 3) errors.push(`item: expected 3 items, got ${items.itemCount}`);
+const cmd1 = giveCommand(itemcfg.items[0], 48);
+if (!/^give @p minecraft:name_tag\[/.test(cmd1)) errors.push("item: give target/base wrong");
+if (!/minecraft:item_name='\{"text":"Safari Ticket","color":"green"\}'/.test(cmd1)) errors.push("item: item_name component wrong");
+if (!/minecraft:lore=\['\{"text":"Enter the zone","color":"gray","italic":false\}'\]/.test(cmd1)) errors.push("item: lore component wrong");
+if (!/minecraft:enchantment_glint_override=true/.test(cmd1) || !/minecraft:rarity="rare"/.test(cmd1)) errors.push("item: glint/rarity missing");
+if (!/\] 1$/.test(cmd1)) errors.push("item: count suffix wrong");
+// version-aware custom_model_data: int <1.21.4, floats structure after
+if (!/minecraft:custom_model_data=7\b/.test(giveCommand(itemcfg.items[1], 48))) errors.push("item: pack-48 custom_model_data should be an int");
+if (!/minecraft:custom_model_data=\{floats:\[7f\]\}/.test(giveCommand(itemcfg.items[1], 61))) errors.push("item: pack-61 custom_model_data should be the floats structure");
+if (!/minecraft:unbreakable=\{\}/.test(giveCommand(itemcfg.items[1], 48))) errors.push("item: unbreakable component missing");
+// datapack give functions, with dedup on duplicate names
+const giveFns = items.bundle.files.filter((f) => /\/function\/give_.*\.mcfunction$/.test(f.path));
+if (giveFns.length !== 3) errors.push(`item: expected 3 give functions, got ${giveFns.length}`);
+if (new Set(giveFns.map((f) => f.path)).size !== 3) errors.push("item: duplicate give-function file names (dedup failed)");
+if (!items.bundle.files.some((f) => f.path === "give_commands.txt")) errors.push("item: missing give_commands.txt sidecar");
+console.log("\n=== item: give command ===");
+console.log("/" + cmd1);
 
 if (errors.length) {
   console.error("\nSMOKE FAILED:\n" + errors.map((e) => " - " + e).join("\n"));
