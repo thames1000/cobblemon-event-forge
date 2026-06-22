@@ -6,6 +6,8 @@ import { newObjective } from "../src/lib/objective/types";
 import { POKEMON, findSpecies } from "../src/lib/catalog/pokemon";
 import { generateBattleFactory } from "../src/lib/battle/generate";
 import type { BattleConfig } from "../src/lib/battle/types";
+import { generateBattleTower } from "../src/lib/battle/tower";
+import type { TowerConfig } from "../src/lib/battle/tower";
 
 // catalog: the full National Dex (#1–1025) with Cobblemon-style ids + legendary flags
 const errors: string[] = [];
@@ -499,6 +501,44 @@ if (!bffdraft || !/random value 1\.\.4/.test(bffdraft.contents)) errors.push("ba
 if (bff.bundle.files.some((f) => /\/function\/draft_(pick|roll|extract|give)\./.test(f.path))) errors.push("battle: fixed mode should not emit runtime draft macros");
 console.log("\n=== battle: runtime draft_random + draft_pick ===");
 console.log(bdr?.contents + "\n---\n" + bpick?.contents);
+
+// === NPC Battle Tower (RCT defeat_count ladder) ===
+const tcfg: TowerConfig = {
+  title: "Sky Tower", floors: 8, scope: "type", trainerType: "NORMAL", trainerIds: [],
+  perFloorReward: [{ kind: "item", itemId: "cobblemon:rare_candy", count: 1 }],
+  milestones: [{ floor: 5, rewards: [{ kind: "item", itemId: "cobblemon:exp_candy_xl", count: 5 }] }],
+  packFormat: 48,
+};
+const tw = generateBattleTower(tcfg);
+if (!tw.validation.ok) errors.push("tower: invalid datapack");
+if (tw.floors !== 8) errors.push(`tower: expected 8 floors, got ${tw.floors}`);
+const floorAdvs = tw.bundle.files.filter((f) => /\/advancement\/floor_\d+\.json$/.test(f.path));
+if (floorAdvs.length !== 8) errors.push(`tower: expected 8 floor advancements, got ${floorAdvs.length}`);
+const adv5 = tw.bundle.files.find((f) => f.path.endsWith("/advancement/floor_5.json"));
+if (adv5) {
+  const d = JSON.parse(adv5.contents);
+  if (d.criteria?.cleared?.trigger !== "rctmod:defeat_count") errors.push("tower: floor advancement wrong trigger");
+  if (d.criteria?.cleared?.conditions?.count !== 5 || d.criteria?.cleared?.conditions?.trainer_type !== "NORMAL") errors.push("tower: floor 5 conditions wrong");
+  if (String(d.rewards?.function) !== "sky_tower:floor_5") errors.push("tower: floor 5 reward fn not wired");
+} else errors.push("tower: missing floor_5 advancement");
+const tf5 = tw.bundle.files.find((f) => f.path.endsWith("/function/floor_5.mcfunction"));
+if (!tf5 || !/scoreboard players set @s tower_rank 5/.test(tf5.contents)) errors.push("tower: floor_5 fn doesn't set rank");
+if (!tf5 || !/give @s cobblemon:rare_candy 1/.test(tf5.contents)) errors.push("tower: floor_5 fn missing per-floor reward");
+if (!tf5 || !/Milestone bonus/.test(tf5.contents) || !/give @s cobblemon:exp_candy_xl 5/.test(tf5.contents)) errors.push("tower: floor_5 fn missing milestone bonus");
+const tf3 = tw.bundle.files.find((f) => f.path.endsWith("/function/floor_3.mcfunction"));
+if (tf3 && /Milestone bonus/.test(tf3.contents)) errors.push("tower: non-milestone floor 3 should have no bonus");
+const tload = tw.bundle.files.find((f) => f.path.endsWith("/function/load.mcfunction"));
+if (!tload || !/scoreboard objectives add tower_rank dummy/.test(tload.contents)) errors.push("tower: load doesn't create the rank objective");
+if (!tw.bundle.files.some((f) => f.path === "reward_table.txt")) errors.push("tower: missing reward-table sidecar");
+// scope by ids → trainer_ids condition, no trainer_type
+const twIds = generateBattleTower({ ...tcfg, scope: "ids", trainerIds: ["leader_brock_019e", "rival_gary_001"] });
+const idAdv = twIds.bundle.files.find((f) => f.path.endsWith("/advancement/floor_1.json"));
+if (idAdv) {
+  const c = JSON.parse(idAdv.contents).criteria?.cleared?.conditions;
+  if (!Array.isArray(c?.trainer_ids) || c.trainer_type) errors.push("tower: ids scope should use trainer_ids, not trainer_type");
+}
+console.log("\n=== tower: floor_5 function ===");
+console.log(tf5?.contents);
 
 if (errors.length) {
   console.error("\nSMOKE FAILED:\n" + errors.map((e) => " - " + e).join("\n"));

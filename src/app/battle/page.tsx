@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { generateBattleFactory } from "@/lib/battle/generate";
+import { generateBattleTower } from "@/lib/battle/tower";
+import type { TowerConfig, TowerMilestone } from "@/lib/battle/tower";
 import { FORMATS, THEMES, DIFFICULTIES, STANDARD_CLAUSES, ALL_THEME_TYPES } from "@/lib/battle/catalog";
 import type { BattleConfig } from "@/lib/battle/types";
 import type { PokeType } from "@/lib/catalog/pokemon";
@@ -9,7 +11,7 @@ import { MC_VERSIONS } from "@/lib/datapack/packMeta";
 import { zipDatapack, zipAll } from "@/lib/datapack/zip";
 import { DATAPACK_KINDS } from "@/lib/datapack/types";
 import { downloadZip, downloadText } from "@/lib/download";
-import { SharedDatalists } from "@/app/components/RewardList";
+import RewardList, { SharedDatalists } from "@/app/components/RewardList";
 
 const DEFAULT_CONFIG: BattleConfig = {
   title: "Frontier Factory",
@@ -32,6 +34,25 @@ const DRAFT_MODES = [
   { id: "runtime" as const, name: "Runtime random", blurb: "Fresh team each draft" },
   { id: "fixed" as const, name: "Fixed teams", blurb: "Pre-built pool" },
 ];
+
+const PAGE_MODES = [
+  { id: "rental" as const, name: "🎴 Rental Factory", blurb: "Draft kits & battle (PvP)" },
+  { id: "tower" as const, name: "🗼 NPC Tower", blurb: "Climb RCT trainers for rewards" },
+];
+
+const DEFAULT_TOWER: TowerConfig = {
+  title: "Sky Tower",
+  floors: 10,
+  scope: "type",
+  trainerType: "NORMAL",
+  trainerIds: [],
+  perFloorReward: [{ kind: "item", itemId: "cobblemon:rare_candy", count: 1 }],
+  milestones: [
+    { floor: 5, rewards: [{ kind: "item", itemId: "cobblemon:exp_candy_xl", count: 5 }] },
+    { floor: 10, rewards: [{ kind: "item", itemId: "obc:bottle_cap", count: 1 }] },
+  ],
+  packFormat: 48,
+};
 
 /** Small list editor for free-text lines (clauses) / species ids (banlist). */
 function ListEditor({ label, items, onChange, datalist, placeholder }: { label: string; items: string[]; onChange: (v: string[]) => void; datalist?: string; placeholder?: string }) {
@@ -87,34 +108,52 @@ function Toggle<T extends string>({ options, value, onChange }: { options: { id:
 }
 
 export default function Page() {
+  const [pageMode, setPageMode] = useState<"rental" | "tower">("rental");
   const [config, setConfig] = useState<BattleConfig>(DEFAULT_CONFIG);
+  const [tower, setTower] = useState<TowerConfig>(DEFAULT_TOWER);
   const [activeFile, setActiveFile] = useState("");
 
-  const result = useMemo(() => generateBattleFactory(config), [config]);
+  const rentalResult = useMemo(() => generateBattleFactory(config), [config]);
+  const towerResult = useMemo(() => generateBattleTower(tower), [tower]);
+  const result = pageMode === "rental" ? rentalResult : towerResult;
   const selected = result.bundle.files.find((f) => f.path === activeFile) ?? result.bundle.files[0];
   const patch = (p: Partial<BattleConfig>) => setConfig((c) => ({ ...c, ...p }));
+  const patchTower = (p: Partial<TowerConfig>) => setTower((t) => ({ ...t, ...p }));
 
   const downloadDatapack = () => downloadZip(zipDatapack(result.bundle.files), result.datapackFileName);
   const downloadBundle = () => downloadZip(zipAll(result.bundle.slug, result.bundle.files), `${result.bundle.slug}_bundle.zip`);
 
-  const poolLabel = config.draftMode === "runtime" ? `${result.pool.length} sets · teams of ${config.teamSize}` : `${result.teams.length} teams · ${result.teams.reduce((s, t) => s + t.mons.length, 0)} mons`;
+  const headChip =
+    pageMode === "rental"
+      ? config.draftMode === "runtime"
+        ? `${rentalResult.pool.length} sets · teams of ${config.teamSize}`
+        : `${rentalResult.teams.length} teams · ${rentalResult.teams.reduce((s, t) => s + t.mons.length, 0)} mons`
+      : `${towerResult.floors} floors`;
+  const titleOk = pageMode === "rental" ? !!config.title : !!tower.title;
 
   return (
     <div className="px-6 py-8">
       <SharedDatalists />
 
-      <header className="mb-6">
+      <header className="mb-5">
         <div className="chip mb-3">⚔️ Battle Factory</div>
         <h1 className="text-2xl font-bold text-slate-100">Build a Battle Factory</h1>
         <p className="mt-1 text-sm text-slate-400">
-          Generate a pool of pre-built <b>rental teams</b> (natures, abilities, held items, EVs/IVs — natural movesets) plus a
-          stated ruleset. Players draft a random team and battle for the longest streak. Tickets &amp; admin functions included.
+          {pageMode === "rental"
+            ? "Pre-built rental teams + a ruleset; players draft and battle (PvP)."
+            : "An RCT NPC battle tower: a reward each floor, bigger rewards the higher you climb."}
         </p>
       </header>
+
+      <div className="mb-6 max-w-md">
+        <Toggle options={PAGE_MODES} value={pageMode} onChange={setPageMode} />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         {/* LEFT — config */}
         <div className="space-y-6">
+          {pageMode === "rental" && (
+            <>
           <section className="panel p-5">
             <div className="space-y-4">
               <div>
@@ -214,6 +253,110 @@ export default function Page() {
             <ListEditor label="Clauses (stated)" items={config.clauses} onChange={(clauses) => patch({ clauses })} placeholder="Species Clause — …" />
             <ListEditor label="Banned species" items={config.bannedSpecies} onChange={(bannedSpecies) => patch({ bannedSpecies })} datalist="dl-species" placeholder="species id (e.g. dragapult)" />
           </section>
+            </>
+          )}
+
+          {pageMode === "tower" && (
+            <>
+              <section className="panel p-5">
+                <div className="space-y-4">
+                  <div>
+                    <label className="field-label">Tower name</label>
+                    <input className="input" value={tower.title} placeholder="Sky Tower" onChange={(e) => patchTower({ title: e.target.value })} />
+                    <p className="mt-1.5 text-xs text-slate-500">
+                      namespace <code className="text-amber-300">{towerResult.bundle.namespace}</code>
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="field-label">Floors</label>
+                      <input type="number" min={1} max={100} className="input" value={tower.floors} onChange={(e) => patchTower({ floors: Math.min(100, Math.max(1, Number(e.target.value) || 1)) })} />
+                    </div>
+                    <div>
+                      <label className="field-label">Target Minecraft</label>
+                      <select className="input" value={tower.packFormat} onChange={(e) => patchTower({ packFormat: Number(e.target.value) })}>
+                        {MC_VERSIONS.map((v) => (
+                          <option key={v.packFormat} value={v.packFormat}>
+                            {v.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="panel space-y-4 p-5">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">RCT trainers</h2>
+                <p className="text-[11px] text-amber-400/90">Requires Radical Cobblemon Trainers. A floor clears per DISTINCT tower trainer defeated.</p>
+                <div>
+                  <div className="field-label">Match trainers by</div>
+                  <Toggle
+                    options={[
+                      { id: "type" as const, name: "Trainer type" },
+                      { id: "ids" as const, name: "Trainer ids" },
+                    ]}
+                    value={tower.scope}
+                    onChange={(scope) => patchTower({ scope })}
+                  />
+                </div>
+                {tower.scope === "type" ? (
+                  <div>
+                    <label className="field-label">Trainer type</label>
+                    <input className="input font-mono text-xs" value={tower.trainerType} placeholder="NORMAL" onChange={(e) => patchTower({ trainerType: e.target.value })} />
+                  </div>
+                ) : (
+                  <ListEditor label="Trainer ids" items={tower.trainerIds} onChange={(trainerIds) => patchTower({ trainerIds })} placeholder="leader_brock_019e" />
+                )}
+              </section>
+
+              <section className="panel space-y-3 p-5">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Per-floor reward</h2>
+                <p className="text-[11px] text-slate-500">Handed out every floor a player clears.</p>
+                <RewardList rewards={tower.perFloorReward} onChange={(perFloorReward) => patchTower({ perFloorReward })} />
+              </section>
+
+              <section className="panel space-y-3 p-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Milestone bonuses</h2>
+                  <button className="btn-ghost px-2 py-0.5 text-[11px]" onClick={() => patchTower({ milestones: [...tower.milestones, { floor: tower.floors, rewards: [] } as TowerMilestone] })}>
+                    + Add
+                  </button>
+                </div>
+                {tower.milestones.length === 0 && <p className="text-[11px] text-slate-600">none</p>}
+                {tower.milestones.map((m, i) => (
+                  <div key={i} className="space-y-2 rounded border border-[var(--border)] p-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-400">Floor</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={tower.floors}
+                        className="input w-20 text-xs"
+                        value={m.floor}
+                        onChange={(e) => {
+                          const ms = [...tower.milestones];
+                          ms[i] = { ...ms[i], floor: Math.max(1, Number(e.target.value) || 1) };
+                          patchTower({ milestones: ms });
+                        }}
+                      />
+                      <button className="btn-ghost ml-auto px-2 py-1 text-xs" onClick={() => patchTower({ milestones: tower.milestones.filter((_, j) => j !== i) })}>
+                        ✕
+                      </button>
+                    </div>
+                    <RewardList
+                      rewards={m.rewards}
+                      onChange={(rewards) => {
+                        const ms = [...tower.milestones];
+                        ms[i] = { ...ms[i], rewards };
+                        patchTower({ milestones: ms });
+                      }}
+                    />
+                  </div>
+                ))}
+              </section>
+            </>
+          )}
         </div>
 
         {/* RIGHT — preview */}
@@ -226,7 +369,7 @@ export default function Page() {
               ) : (
                 <span className="rounded bg-red-500/15 px-2 py-0.5 text-xs font-semibold text-red-300">✕ errors</span>
               )}
-              <span className="chip ml-auto">{poolLabel}</span>
+              <span className="chip ml-auto">{headChip}</span>
             </div>
             {result.validation.issues.length > 0 && (
               <ul className="mb-3 space-y-1 text-xs">
@@ -239,14 +382,14 @@ export default function Page() {
               </ul>
             )}
             <div className="flex flex-wrap gap-2">
-              <button className="btn-primary" onClick={downloadDatapack} disabled={!config.title}>
+              <button className="btn-primary" onClick={downloadDatapack} disabled={!titleOk}>
                 ⬇ Datapack .zip
               </button>
-              <button className="btn-ghost" onClick={downloadBundle} disabled={!config.title}>
+              <button className="btn-ghost" onClick={downloadBundle} disabled={!titleOk}>
                 ⬇ Everything
               </button>
             </div>
-            {!config.title && <p className="mt-2 text-xs text-slate-500">Name the event to enable download.</p>}
+            {!titleOk && <p className="mt-2 text-xs text-slate-500">Name the {pageMode === "tower" ? "tower" : "event"} to enable download.</p>}
           </section>
 
           <section className="panel overflow-hidden">
