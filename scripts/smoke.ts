@@ -3,6 +3,15 @@ import { generateEvent } from "../src/lib/event/generate";
 import { validateDatapack } from "../src/lib/datapack/validate";
 import { DATAPACK_KINDS } from "../src/lib/datapack/types";
 import { newObjective } from "../src/lib/objective/types";
+import { POKEMON, findSpecies } from "../src/lib/catalog/pokemon";
+
+// catalog: the full National Dex (#1–1025) with Cobblemon-style ids + legendary flags
+const errors: string[] = [];
+if (POKEMON.length < 1025) errors.push(`catalog: expected >=1025 species, got ${POKEMON.length}`);
+if (findSpecies("miraidon")?.legendary !== true) errors.push("catalog: gen9 legendary (miraidon) missing/not flagged");
+if (!findSpecies("greattusk")) errors.push("catalog: gen9 paradox (greattusk) missing");
+if (findSpecies("greattusk")?.legendary) errors.push("catalog: paradox should not be flagged legendary");
+if (new Set(POKEMON.map((p) => p.id)).size !== POKEMON.length) errors.push("catalog: duplicate species ids");
 
 // Reproduce the brainstorm's flagship "Electric Storm Weekend".
 const cfg = configFromPreset("legendary-hunt");
@@ -56,8 +65,7 @@ for (const i of validation.issues) console.log(` - ${i.severity}: ${i.message} $
 
 console.log("\n=== datapack file name:", datapackFileName);
 
-// Assertions
-const errors: string[] = [];
+// Assertions (errors[] declared at top, with the catalog checks)
 if (!validation.ok) errors.push("validation reported errors");
 if (!bundle.files.some((f) => f.path === "pack.mcmeta")) errors.push("missing pack.mcmeta");
 if (!bundle.files.some((f) => f.path.includes("spawn_pool_world/zapdos.json"))) errors.push("missing zapdos spawn");
@@ -89,7 +97,13 @@ if (adv) {
   if (doc.criteria?.caught?.conditions?.count !== 20) errors.push("legendary: wrong count condition");
   if (!String(doc.rewards?.function).endsWith(":summon_zapdos")) errors.push("legendary: reward function not wired");
 }
-if (!bundle.files.some((f) => f.path.endsWith("summon_zapdos.mcfunction"))) errors.push("legendary: missing summon function");
+const summonFn = bundle.files.find((f) => f.path.endsWith("summon_zapdos.mcfunction"));
+if (!summonFn) errors.push("legendary: missing summon function");
+// the spawn MUST be positioned at the player — reward functions run at world spawn, not @s's location
+if (summonFn && !/execute at @s run spawnpokemonat ~ ~ ~ zapdos level=60/.test(summonFn.contents))
+  errors.push("legendary: summon not positioned at the player (would spawn at world spawn)");
+if (summonFn && /\n\s*spawnpokemon zapdos/.test(summonFn.contents))
+  errors.push("legendary: still uses bare spawnpokemon (unpositioned)");
 console.log("\n=== sample: advancement ===");
 console.log(adv?.contents);
 console.log("\n=== sample: summon function ===");
@@ -128,7 +142,7 @@ if (advB1) {
 }
 if (fnB1) {
   if (!fnB1.contents.includes("give @s cobblemon:ultra_ball 10")) errors.push("objective: item reward missing");
-  if (!fnB1.contents.includes("spawnpokemon pikachu level=25")) errors.push("objective: spawn reward missing");
+  if (!fnB1.contents.includes("execute at @s run spawnpokemonat ~ ~ ~ pikachu level=25")) errors.push("objective: spawn reward missing/not positioned at player");
   if (!/give @s minecraft:nether_star\[.*cobble_crate:"safari_crate"/.test(fnB1.contents)) errors.push("objective: crate-key reward missing");
   if (!fnB1.contents.includes('"selector":"@s"')) errors.push("objective: announce broadcast missing");
 }
@@ -288,9 +302,9 @@ if (!sfres.validation.ok) errors.push("safari: invalid datapack");
 for (const f of sfres.bundle.files) {
   if (f.path.endsWith(".json")) { try { JSON.parse(f.contents); } catch { errors.push(`safari: bad json ${f.path}`); } }
 }
-// spawns carry the biome condition
+// spawns carry the biome condition — exclusive (default) ties them to the custom arena biome
 const gastly = sfres.bundle.files.find((f) => f.path.endsWith("spawn_pool_world/gastly.json"));
-if (gastly && !/"biomes"\s*:\s*\[\s*"#minecraft:is_forest"/.test(gastly.contents)) errors.push("safari: spawn missing biome condition");
+if (gastly && !/"biomes"\s*:\s*\[\s*"haunted_woods_safari:zone_biome"/.test(gastly.contents)) errors.push("safari: exclusive spawn not conditioned to the custom biome");
 // entry ticket: advancement + give + enter
 if (!sfres.bundle.files.some((f) => f.path.endsWith("/advancement/use_haunted_woods_safari.json"))) errors.push("safari: missing ticket advancement");
 const enterFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/enter_haunted_woods_safari.mcfunction"));
@@ -307,19 +321,41 @@ if (rewardAdv) {
 for (const p of ["safari_rules.txt", "npc_dialogue.txt", "sign_text.txt", "discord_announcement.md", "admin_checklist.txt"]) {
   if (!sfres.bundle.files.some((f) => f.path === p)) errors.push(`safari: missing side-car ${p}`);
 }
-// arena: datapack dimension (single-biome=fixed, mirror=multi_noise), entered with VANILLA teleports
+// arena dimension: exclusive (default) => custom biome source; entered with VANILLA teleports
 const dim = sfres.bundle.files.find((f) => f.path.endsWith("/dimension/zone.json"));
 if (!dim) errors.push("safari: missing arena dimension");
 if (dim) {
   const d = JSON.parse(dim.contents);
-  if (d.generator?.biome_source?.type !== "minecraft:fixed" || d.generator?.biome_source?.biome !== "minecraft:dark_forest")
-    errors.push("safari: single-biome dimension wrong biome source");
+  if (d.generator?.biome_source?.type !== "minecraft:fixed" || d.generator?.biome_source?.biome !== "haunted_woods_safari:zone_biome")
+    errors.push("safari: exclusive arena should use the custom biome source");
+}
+// exclusive custom biome: copies the dark_forest LOOK (effects + vegetation) but has
+// every vanilla mob spawner empty
+const zoneBiome = sfres.bundle.files.find((f) => f.path.endsWith("/worldgen/biome/zone_biome.json"));
+if (!zoneBiome) errors.push("safari: missing custom arena biome");
+else {
+  const zb = JSON.parse(zoneBiome.contents);
+  const cats = Object.values(zb.spawners ?? {});
+  if (!cats.length || cats.some((c) => Array.isArray(c) && c.length > 0))
+    errors.push("safari: arena biome should spawn no vanilla mobs");
+  if (zb.effects?.grass_color_modifier !== "dark_forest") errors.push("safari: arena biome didn't copy the dark_forest effects");
+  if (!Array.isArray(zb.features) || !zb.features.some((step: unknown[]) => Array.isArray(step) && step.length > 0))
+    errors.push("safari: arena biome didn't copy the biome's vegetation features");
 }
 // Resource World commands can't run from functions — none should appear anywhere
 if (sfres.bundle.files.some((f) => /\bresourceworld\b/.test(f.contents))) errors.push("safari: must not use resourceworld commands");
 if (sfres.bundle.files.some((f) => f.path.endsWith("/function/create_arena.mcfunction"))) errors.push("safari: stray create_arena function");
-// mirror mode still emits a dimension, but as a normal multi_noise overworld
-const mirrorMode = generateSafari({ ...safari, arena: { ...safari.arena, mode: "mirror" } });
+// non-exclusive falls back to the themed vanilla biome + spawn tags, and emits no custom biome
+const themed = generateSafari({ ...safari, arena: { ...safari.arena, exclusive: false } });
+const tdim = themed.bundle.files.find((f) => f.path.endsWith("/dimension/zone.json"));
+if (!tdim || JSON.parse(tdim.contents).generator?.biome_source?.biome !== "minecraft:dark_forest")
+  errors.push("safari: non-exclusive single-biome wrong biome source");
+if (themed.bundle.files.some((f) => f.path.endsWith("/worldgen/biome/zone_biome.json"))) errors.push("safari: custom biome present when not exclusive");
+const themedGastly = themed.bundle.files.find((f) => f.path.endsWith("spawn_pool_world/gastly.json"));
+if (themedGastly && !/"biomes"\s*:\s*\[\s*"#minecraft:is_forest"/.test(themedGastly.contents))
+  errors.push("safari: non-exclusive spawn missing the themed biome tag");
+// mirror mode (non-exclusive) still emits a dimension as a normal multi_noise overworld
+const mirrorMode = generateSafari({ ...safari, arena: { ...safari.arena, mode: "mirror", exclusive: false } });
 const mdim = mirrorMode.bundle.files.find((f) => f.path.endsWith("/dimension/zone.json"));
 if (!mdim || JSON.parse(mdim.contents).generator?.biome_source?.type !== "minecraft:multi_noise")
   errors.push("safari: mirror mode should emit a multi_noise dimension");
@@ -351,6 +387,48 @@ const loadFnS = sfres.bundle.files.find((f) => f.path.endsWith("/function/load.m
 if (!loadFnS || !/scoreboard objectives add safari_time dummy/.test(loadFnS.contents)) errors.push("safari: load doesn't create the timer objective");
 if (!loadFnS || !/scoreboard objectives add safari_ret_x dummy/.test(loadFnS.contents)) errors.push("safari: load doesn't create the return objective");
 if (!sfres.bundle.files.some((f) => f.path === "data/minecraft/tags/function/load.json")) errors.push("safari: missing load tag");
+// on-screen boss bar (default on): enter creates a per-player bar, tick refreshes it, home removes it
+if (enterFn && !/function haunted_woods_safari:bar_create_haunted_woods_safari with storage/.test(enterFn.contents))
+  errors.push("safari: enter doesn't create the boss bar");
+if (tickFn && !/function haunted_woods_safari:bar_update_haunted_woods_safari/.test(tickFn.contents))
+  errors.push("safari: tick doesn't refresh the boss bar");
+if (homeFn && !/function haunted_woods_safari:bar_remove_haunted_woods_safari/.test(homeFn.contents))
+  errors.push("safari: home doesn't remove the boss bar");
+const barApply = sfres.bundle.files.find((f) => f.path.endsWith("/function/bar_apply_haunted_woods_safari.mcfunction"));
+if (!barApply || !/\$bossbar set haunted_woods_safari:t\$\(id\) value \$\(secs\)/.test(barApply.contents))
+  errors.push("safari: bar_apply macro doesn't set the per-player bar value");
+if (loadFnS && !/scoreboard objectives add safari_bar dummy/.test(loadFnS.contents)) errors.push("safari: load doesn't create the bar id objective");
+// opt-out: timer.bossbar === false drops all bar plumbing
+const noBar = generateSafari({ ...safari, timer: { ...safari.timer, bossbar: false } });
+if (noBar.bundle.files.some((f) => /\/function\/bar_(create|update|apply|remove|delete)_/.test(f.path)))
+  errors.push("safari: bar functions present when bossbar disabled");
+if (noBar.bundle.files.some((f) => /\bbossbar\b/.test(f.contents))) errors.push("safari: bossbar commands present when disabled");
+// leave-early item (default on): given on entry, advancement reward exits via a non-op function
+if (enterFn && !/give @s minecraft:clock\[.*safari:"haunted_woods_safari_leave"/.test(enterFn.contents))
+  errors.push("safari: enter doesn't hand out the leave-early item");
+const leaveAdv = sfres.bundle.files.find((f) => f.path.endsWith("/advancement/use_haunted_woods_safari_leave.json"));
+if (!leaveAdv) errors.push("safari: missing leave-early advancement");
+else {
+  const d = JSON.parse(leaveAdv.contents);
+  if (d.criteria?.used?.trigger !== "minecraft:consume_item") errors.push("safari: leave advancement wrong trigger");
+  if (String(d.rewards?.function) !== "haunted_woods_safari:leave_haunted_woods_safari") errors.push("safari: leave advancement wrong reward");
+}
+const leaveFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/leave_haunted_woods_safari.mcfunction"));
+if (!leaveFn || !/execute if score @s safari_time matches 1\.\. run function haunted_woods_safari:do_leave_haunted_woods_safari/.test(leaveFn.contents))
+  errors.push("safari: leave function doesn't guard on an active session");
+if (leaveFn && !/advancement revoke @s only haunted_woods_safari:use_haunted_woods_safari_leave/.test(leaveFn.contents))
+  errors.push("safari: leave function doesn't re-arm its advancement");
+const doLeaveFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/do_leave_haunted_woods_safari.mcfunction"));
+if (!doLeaveFn || !/function haunted_woods_safari:return_haunted_woods_safari/.test(doLeaveFn.contents))
+  errors.push("safari: do_leave doesn't return the player home");
+const leaveClear = /clear @s minecraft:clock\[minecraft:custom_data=\{safari:"haunted_woods_safari_leave"\}\]/;
+if (!doLeaveFn || !leaveClear.test(doLeaveFn.contents)) errors.push("safari: do_leave doesn't reclaim the leave item");
+if (homeFn && !leaveClear.test(homeFn.contents)) errors.push("safari: timer home doesn't reclaim the leave item");
+// opt-out: leaveEarly === false drops the item + its functions
+const noLeave = generateSafari({ ...safari, leaveEarly: false });
+if (noLeave.bundle.files.some((f) => /\/function\/(leave|do_leave)_/.test(f.path) || /_leave\.json$/.test(f.path)))
+  errors.push("safari: leave functions present when leaveEarly disabled");
+if (noLeave.bundle.files.some((f) => /minecraft:clock\[/.test(f.contents))) errors.push("safari: leave item present when leaveEarly disabled");
 console.log("\n=== safari_tick ===");
 console.log(tickFn?.contents);
 // arena disabled => no dimension / warp / return

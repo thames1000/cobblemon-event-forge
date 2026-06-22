@@ -26,8 +26,13 @@ function titleCase(id: string): string {
  * advancement and the summon function.
  *
  * The advancement has no `display` block, so it's invisible (no toast, hidden
- * from the advancements screen) — purely a counter. The reward function runs as
- * the triggering player at their position, so the legendary appears next to them.
+ * from the advancements screen) — purely a counter.
+ *
+ * IMPORTANT: an advancement reward function runs AS the triggering player (so @s
+ * is them) but NOT at their position — its execution position is the world spawn,
+ * not the player. A bare `spawnpokemon` therefore spawns the legendary at world
+ * spawn (the player sees the announcement but no Pokémon). We wrap the spawn in
+ * `execute at @s run spawnpokemonat ~ ~ ~ …` so it spawns at the player.
  */
 export function buildLegendaryFiles(opts: {
   namespace: string;
@@ -73,7 +78,8 @@ export function buildLegendaryFiles(opts: {
   const typeLabel = trigger.type === "any" ? "Pokémon" : `${typeId}-type Pokémon`;
   const fn: string[] = [];
   fn.push(`# Auto-summon ${niceName} after a player catches ${count} ${typeLabel}.`);
-  fn.push(`# Triggered by advancement ${ns}:${advName}; runs as that player, at their location.`);
+  fn.push(`# Triggered by advancement ${ns}:${advName}; runs as that player. Reward functions`);
+  fn.push(`# do NOT run at the player's position, so we 'execute at @s' to spawn next to them.`);
   if (opts.enableFlag) {
     fn.push(`# stop if the event has been disabled`);
     fn.push(`execute unless score ${enabledFlag(slug)} ${EVENT_OBJECTIVE} matches 1 run return 0`);
@@ -83,10 +89,11 @@ export function buildLegendaryFiles(opts: {
     fn.push(`# Server-wide: only the FIRST player to reach the goal spawns it.`);
     fn.push(`execute if score ${flag} ${EVENT_OBJECTIVE} matches 1 run return 0`);
     fn.push(`scoreboard players set ${flag} ${EVENT_OBJECTIVE} 1`);
-    fn.push(`spawnpokemon ${legendary} level=${level}`);
-    fn.push(`tellraw @a {"text":"⚡ ${niceName} has appeared somewhere in the world!","color":"gold"}`);
+    fn.push(`execute at @s run spawnpokemonat ~ ~ ~ ${legendary} level=${level}`);
+    // @s is the finisher; the selector component resolves to their name for everyone.
+    fn.push(`tellraw @a [{"text":"⚡ ","color":"gold"},{"selector":"@s","color":"yellow"},{"text":" drew out ${niceName} — it appeared right next to them!","color":"gold"}]`);
   } else {
-    fn.push(`spawnpokemon ${legendary} level=${level}`);
+    fn.push(`execute at @s run spawnpokemonat ~ ~ ~ ${legendary} level=${level}`);
     fn.push(`tellraw @s {"text":"Your hunt drew out ${niceName}!","color":"yellow"}`);
   }
   files.push({

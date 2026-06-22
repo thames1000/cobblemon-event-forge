@@ -48,7 +48,9 @@ export function compileRewardLines(actions: RewardAction[], opts: { packFormat: 
       }
       case "spawn": {
         if (!a.species.trim()) break;
-        lines.push(`spawnpokemon ${toId(a.species)} level=${Math.max(1, Math.round(a.level))}`);
+        // Reward functions run AS the player but at world spawn, not the player's
+        // position — `execute at @s` spawns the Pokémon next to the player instead.
+        lines.push(`execute at @s run spawnpokemonat ~ ~ ~ ${toId(a.species)} level=${Math.max(1, Math.round(a.level))}`);
         break;
       }
       case "crate-key": {
