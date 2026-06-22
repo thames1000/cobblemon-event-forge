@@ -75,7 +75,11 @@ export function consumeAdvancement(opts: {
         conditions: {
           item: {
             items: [withNamespace(opts.baseItem)],
-            predicates: { "minecraft:custom_data": { [opts.dataKey]: opts.dataValue } },
+            // The custom_data item sub-predicate is an NbtPredicate, whose codec is a
+            // STRING (parsed as SNBT at load), NOT a JSON object. Emitting an object
+            // here makes the whole advancement fail to deserialize and silently drop,
+            // so the consume is never detected. Must be the SNBT string form.
+            predicates: { "minecraft:custom_data": `{${opts.dataKey}:"${opts.dataValue}"}` },
           },
         },
       },

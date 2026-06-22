@@ -36,7 +36,7 @@ export function crateWarnings(config: CrateConfig): CrateWarning[] {
           message: `Master Ball drops ~${(chance * 100).toFixed(1)}% per open in "${tier.name}". Keep crates like this rare/non-repeatable.`,
         });
       }
-      if (e.itemId === "cobblemon:gold_bottle_cap" && e.expectedCount > 0.5) {
+      if (e.itemId === "obc:bottle_cap_gold" && e.expectedCount > 0.5) {
         out.push({
           level: "warn",
           message: `Gold Bottle Cap averages ${e.expectedCount.toFixed(2)} per open — that hyper-trains a perfect IV very often.`,

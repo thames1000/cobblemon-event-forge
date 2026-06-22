@@ -10,19 +10,20 @@ export interface SafariTicket {
 }
 
 /**
- * A temporary arena world for the safari, via the Resource World mod
- * (`/resourceworld create|tp|delete`). Created once at setup, entered through the
- * ticket, and deleted on uninstall.
+ * A standalone arena dimension for the safari, defined by this datapack and
+ * entered with VANILLA teleports (no Resource World mod — its commands can't run
+ * from datapack functions). The ticket warps players in; the timer/exit returns
+ * them to where they came from.
  */
 export interface SafariArena {
   enabled: boolean;
   /**
-   * "mirror": copy an existing dimension's generation.
-   * "single-biome": generate a one-biome overworld dimension (a themed datapack
-   * dimension) and mirror that — so the whole arena is the safari's biome.
+   * "single-biome": generate a one-biome overworld dimension — the whole arena is
+   * the safari's biome.
+   * "mirror": generate a separate, normal overworld dimension.
    */
   mode: "mirror" | "single-biome";
-  /** Dimension to mirror when mode = "mirror" (e.g. "minecraft:overworld"). */
+  /** Legacy/unused: retained for config compatibility (mirror mode is a plain overworld). */
   mirror: string;
   /** Biome id for the single-biome arena (e.g. "minecraft:dark_forest"). */
   biome: string;
@@ -30,7 +31,7 @@ export interface SafariArena {
 
 /**
  * Per-player countdown: starts on entry, warns at the given minute-marks, and
- * returns the player home (`/resourceworld home`) when it runs out. Implemented
+ * returns the player to where they entered from when it runs out. Implemented
  * as a 1-second self-rescheduling loop that only runs while someone is inside.
  */
 export interface SafariTimer {

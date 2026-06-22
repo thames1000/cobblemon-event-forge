@@ -41,7 +41,7 @@ export function balanceWarnings(config: EventConfig): BalanceWarning[] {
     if (a.itemId === "cobblemon:master_ball") {
       out.push({ level: "warn", message: "Master Ball is in the rewards — make sure this event isn't repeatable, or guarantees become trivial." });
     }
-    if (a.itemId === "cobblemon:gold_bottle_cap" && a.count > 1) {
+    if (a.itemId === "obc:bottle_cap_gold" && a.count > 1) {
       out.push({ level: "warn", message: `Gold Bottle Cap ×${a.count} is a lot — these hyper-train a perfect IV each.` });
     }
   }

@@ -228,9 +228,9 @@ export default function SafariPage() {
               </label>
             </div>
             <p className="mb-3 text-xs text-slate-500">
-              Spin up a <b>temporary world</b> for the zone via the Resource World mod. A{" "}
-              <code className="text-slate-400">create_arena</code> function makes it (run once); tickets warp players in;{" "}
-              <code className="text-slate-400">uninstall</code> deletes it.
+              Generate a <b>standalone arena dimension</b> for the zone. Tickets warp players in and back
+              out with <b>vanilla teleports</b> — no Resource World mod and no op permissions needed. Requires a
+              one-time full server restart to register the dimension.
             </p>
             {config.arena.enabled && (
               <div className="space-y-3">
@@ -247,7 +247,7 @@ export default function SafariPage() {
                       >
                         <div className="font-semibold">{m === "single-biome" ? "Single biome" : "Mirror dimension"}</div>
                         <div className="text-[11px] text-slate-500">
-                          {m === "single-biome" ? "Whole world is one themed biome" : "Copy a full dimension"}
+                          {m === "single-biome" ? "Whole world is one themed biome" : "A separate normal overworld"}
                         </div>
                       </button>
                     );
@@ -264,9 +264,9 @@ export default function SafariPage() {
                       onChange={(e) => patchArena({ biome: e.target.value })}
                     />
                     <p className="mt-1.5 text-[11px] text-slate-500">
-                      Generates a one-biome overworld dimension and mirrors it. Keep this biome inside your spawn{" "}
+                      Generates a one-biome overworld dimension for the arena. Keep this biome inside your spawn{" "}
                       <b>Biomes</b> above so the encounters appear in the arena.{" "}
-                      <span className="text-amber-400/90">Needs a full server restart (not /reload) before create_arena.</span>
+                      <span className="text-amber-400/90">Needs a full server restart (not /reload) before tickets can warp players in.</span>
                     </p>
                   </div>
                 ) : (
@@ -281,7 +281,7 @@ export default function SafariPage() {
                   </div>
                 )}
                 <p className="text-[11px] text-slate-500">
-                  Verify the exact <code>/resourceworld create</code> args against your mod version.
+                  Players enter via vanilla <code>spreadplayers</code> and are returned to where they came from on exit.
                 </p>
               </div>
             )}
@@ -346,8 +346,8 @@ export default function SafariPage() {
               </label>
             </div>
             <p className="mb-3 text-xs text-slate-500">
-              Starts a {config.timeLimitMinutes}-min countdown on entry and sends the player home
-              (<code>/resourceworld home</code>) when it ends. A 1-second loop that only runs while someone&apos;s inside.
+              Starts a {config.timeLimitMinutes}-min countdown on entry and returns the player to
+              where they entered from when it ends. A 1-second loop that only runs while someone&apos;s inside.
             </p>
             {config.timer.enabled && (
               <div>

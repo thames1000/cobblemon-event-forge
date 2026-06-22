@@ -19,6 +19,10 @@ export interface SafariGenerateResult {
 
 const SAFARI_DATA_KEY = "safari";
 const TIMER_OBJ = "safari_time";
+// Per-player capture of where a player entered from, so they return there on exit.
+const RET_X = "safari_ret_x";
+const RET_Y = "safari_ret_y";
+const RET_Z = "safari_ret_z";
 
 /** Build the tiered featured-mon list (common / rare / ultra-rare). */
 function tieredFeatured(config: SafariConfig): FeaturedMon[] {
@@ -45,66 +49,90 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
   const loadLines: string[] = [];
   const uninstallLines: string[] = [];
 
-  // --- temporary arena world (Resource World mod) ---
+  // --- arena dimension (datapack-defined; entered with vanilla teleports) ---
+  // We deliberately do NOT use the Resource World mod: its tp/home commands only
+  // work when typed live, not when a datapack function runs them, so a ticket could
+  // never warp players in. Instead we define a standalone dimension here and move
+  // players with vanilla `execute in <dim> run …`, which runs fine from a function
+  // at permission level 2 and (because the dimension exists at login) avoids the
+  // client desync. The dimension only registers after a FULL SERVER RESTART
+  // (datapack dimensions do NOT load on /reload).
   if (config.arena.enabled) {
     const singleBiome = config.arena.mode === "single-biome";
-    // For single-biome, define a one-biome overworld dimension and mirror THAT,
-    // so the whole arena is the safari's biome.
-    let mirrorTarget = config.arena.mirror.trim() || "minecraft:overworld";
-    if (singleBiome) {
-      const biome = config.arena.biome.trim() || "minecraft:plains";
-      mirrorTarget = `${ns}:zone`;
-      datapackFiles.push({
-        path: `data/${ns}/dimension/zone.json`,
-        contents: JSON.stringify(
-          {
-            type: "minecraft:overworld",
-            generator: {
-              type: "minecraft:noise",
-              settings: "minecraft:overworld",
-              biome_source: { type: "minecraft:fixed", biome },
-            },
-          },
-          null,
-          2,
-        ),
-        kind: "dimension",
-        label: "single-biome dimension",
-      });
-    }
+    const biome = config.arena.biome.trim() || "minecraft:plains";
+    const arenaDim = `${ns}:zone`;
     datapackFiles.push({
-      path: `data/${ns}/function/create_arena.mcfunction`,
+      path: `data/${ns}/dimension/zone.json`,
+      contents: JSON.stringify(
+        {
+          type: "minecraft:overworld",
+          generator: {
+            type: "minecraft:noise",
+            settings: "minecraft:overworld",
+            // single-biome → the whole arena is the safari's biome; otherwise a
+            // normal (but separate) overworld.
+            biome_source: singleBiome
+              ? { type: "minecraft:fixed", biome }
+              : { type: "minecraft:multi_noise", preset: "minecraft:overworld" },
+          },
+        },
+        null,
+        2,
+      ),
+      kind: "dimension",
+      label: "arena dimension",
+    });
+    // Per-player return point — captured on entry so each player goes back to their
+    // OWN spot, never a shared one.
+    loadLines.push(
+      `scoreboard objectives add ${RET_X} dummy`,
+      `scoreboard objectives add ${RET_Y} dummy`,
+      `scoreboard objectives add ${RET_Z} dummy`,
+    );
+    uninstallLines.push(
+      `scoreboard players reset @a ${RET_X}`,
+      `scoreboard players reset @a ${RET_Y}`,
+      `scoreboard players reset @a ${RET_Z}`,
+    );
+    // Warp IN: drop ONLY this player (@s) on a safe surface within 200 blocks of
+    // (0,0) in the arena dimension. Pure vanilla, so it runs from the ticket's
+    // reward function with no mod command and no op level needed.
+    datapackFiles.push({
+      path: `data/${ns}/function/warp_${slug}.mcfunction`,
       contents: [
-        `# Create the temporary "${config.title}" arena world (Resource World mod).`,
-        `# Run this ONCE during setup. Syntax may vary by mod version:`,
-        `#   /resourceworld create <id> mirror <dimension> [seed]`,
-        ...(singleBiome
-          ? [
-              `# Mirrors the single-biome dimension ${mirrorTarget} defined by this pack.`,
-              `# IMPORTANT: that dimension only registers after a FULL SERVER RESTART`,
-              `# (datapack dimensions do NOT load on /reload). Restart once with this`,
-              `# pack installed, THEN run this function — otherwise you'll get`,
-              `# "Missing key ... ${mirrorTarget}".`,
-            ]
-          : []),
-        `resourceworld create ${slug} mirror ${mirrorTarget}`,
-        // `say` (not tellraw) so it shows in the server CONSOLE, where admins run this.
-        `say 🌍 ${config.title} arena world created! Players enter with a ticket.`,
+        `# Teleport one player (@s) into the arena dimension.`,
+        `execute in ${arenaDim} run spreadplayers 0 0 1 200 false @s`,
         "",
       ].join("\n"),
       kind: "function",
-      label: "create_arena.mcfunction",
+      label: "warp.mcfunction",
     });
-
-    // Teardown: DELETE the arena world. Resource World's delete needs confirmation,
-    // so run it twice back-to-back (1st requests, 2nd confirms) — one call won't
-    // delete. (Make sure no players are inside; a loaded world can't be removed.)
-    uninstallLines.push(
-      `# delete needs confirmation — run twice back-to-back (1st asks, 2nd confirms)`,
-      `resourceworld delete ${slug}`,
-      `resourceworld delete ${slug}`,
-      `say 🗑 ${config.title} arena world deleted.`,
-    );
+    // Warp BACK: return the player to exactly where they entered from (captured into
+    // the scoreboard on entry). Copied per-player into storage, then a macro feeds
+    // the coords to tp. Assumes players enter from the overworld (where tickets live).
+    datapackFiles.push({
+      path: `data/${ns}/function/return_${slug}.mcfunction`,
+      contents: [
+        `# Send @s back to their captured entry point in the overworld.`,
+        `execute store result storage ${ns}:return x int 1 run scoreboard players get @s ${RET_X}`,
+        `execute store result storage ${ns}:return y int 1 run scoreboard players get @s ${RET_Y}`,
+        `execute store result storage ${ns}:return z int 1 run scoreboard players get @s ${RET_Z}`,
+        `function ${ns}:do_return_${slug} with storage ${ns}:return`,
+        "",
+      ].join("\n"),
+      kind: "function",
+      label: "return.mcfunction",
+    });
+    datapackFiles.push({
+      path: `data/${ns}/function/do_return_${slug}.mcfunction`,
+      contents: [
+        `# Macro tp to the captured return coords (filled in by return_${slug}).`,
+        `$execute in minecraft:overworld run tp @s $(x) $(y) $(z)`,
+        "",
+      ].join("\n"),
+      kind: "function",
+      label: "do_return.mcfunction",
+    });
   }
 
   // --- per-player countdown timer (1s self-rescheduling loop) ---
@@ -144,7 +172,7 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
       contents: [
         `# Return a player home when their safari time runs out.`,
         `tellraw @s ${JSON.stringify({ text: `⌛ Your time in the ${config.title} is up — heading home!`, color: "red" })}`,
-        `resourceworld home`,
+        ...(config.arena.enabled ? [`function ${ns}:return_${slug}`] : []),
         `scoreboard players reset @s ${TIMER_OBJ}`,
         "",
       ].join("\n"),
@@ -187,8 +215,17 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
             ]
           : []),
         ...(config.arena.enabled
-          ? [`# warp the player into the temporary arena world`, `resourceworld tp ${slug}`]
+          ? [
+              `# capture where the player entered from (per-player) so they return to`,
+              `# this exact spot on exit, THEN warp them into the arena dimension.`,
+              `execute store result score @s ${RET_X} run data get entity @s Pos[0] 1`,
+              `execute store result score @s ${RET_Y} run data get entity @s Pos[1] 1`,
+              `execute store result score @s ${RET_Z} run data get entity @s Pos[2] 1`,
+              `function ${ns}:warp_${slug}`,
+            ]
           : []),
+        `# re-arm the ticket so it can be used again next time`,
+        `advancement revoke @s only ${ns}:use_${slug}`,
         "",
       ].join("\n"),
       kind: "function",
@@ -257,7 +294,7 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
         ...uninstallLines,
         // the arena block already prints its own "deleted" message; only add a
         // generic confirmation when there's no arena (e.g. timer-only).
-        ...(config.arena.enabled ? [] : [`tellraw @a ${JSON.stringify({ text: `${config.title} torn down.`, color: "gray" })}`]),
+        `tellraw @a ${JSON.stringify({ text: `${config.title} torn down.`, color: "gray" })}`,
         "",
       ].join("\n"),
       kind: "function",

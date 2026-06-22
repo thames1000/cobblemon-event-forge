@@ -29,10 +29,12 @@ export const REWARD_ITEMS: RewardItem[] = [
   { id: "cobblemon:ability_capsule", name: "Ability Capsule", category: "held", value: 4000 },
   { id: "cobblemon:exp_share", name: "Exp. Share", category: "held", value: 2000 },
   // Valuables / IV-EV items
-  { id: "cobblemon:bottle_cap", name: "Bottle Cap", category: "valuable", value: 5000 },
-  { id: "cobblemon:gold_bottle_cap", name: "Gold Bottle Cap", category: "valuable", value: 20000 },
+  { id: "cobblemon:exp_candy_l", name: "Exp. Candy L", category: "valuable", value: 1500 },
   { id: "cobblemon:rare_candy", name: "Rare Candy", category: "valuable", value: 2500 },
   { id: "cobblemon:exp_candy_xl", name: "Exp. Candy XL", category: "valuable", value: 3000 },
+  // Bottle Caps — from the "Only Bottle Caps" mod (namespace `obc`), not base Cobblemon.
+  { id: "obc:bottle_cap", name: "Bottle Cap", category: "valuable", value: 5000 },
+  { id: "obc:bottle_cap_gold", name: "Gold Bottle Cap", category: "valuable", value: 20000 },
   // Medicine
   { id: "cobblemon:potion", name: "Potion", category: "medicine", value: 150 },
   { id: "cobblemon:hyper_potion", name: "Hyper Potion", category: "medicine", value: 600 },

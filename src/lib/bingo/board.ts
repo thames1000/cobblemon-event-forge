@@ -55,7 +55,7 @@ export function newBingoConfig(packFormat: number): BingoConfig {
       { kind: "item", itemId: "cobblemon:rare_candy", count: 5 },
       { kind: "crate-key", crateName: "Bingo Crate", baseItem: "minecraft:nether_star", glint: true },
     ],
-    blackoutReward: [{ kind: "item", itemId: "cobblemon:gold_bottle_cap", count: 1 }],
+    blackoutReward: [{ kind: "item", itemId: "obc:bottle_cap_gold", count: 1 }],
     packFormat,
   };
 }

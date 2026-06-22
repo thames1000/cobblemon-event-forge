@@ -42,7 +42,7 @@ export const EVENT_PRESETS: EventPreset[] = [
     weather: "thunder",
     featured: ["zapdos", "raikou", "entei"],
     objectives: ["Catch 20 Electric-types to draw out the legendary", "Capture the featured legendary"],
-    rewards: [["cobblemon:gold_bottle_cap", 1], ["cobblemon:ultra_ball", 10], ["cobbledollars", 5000]],
+    rewards: [["obc:bottle_cap_gold", 1], ["cobblemon:ultra_ball", 10], ["cobbledollars", 5000]],
   },
   {
     id: "outbreak",
@@ -64,7 +64,7 @@ export const EVENT_PRESETS: EventPreset[] = [
     weather: "any",
     featured: ["scyther", "pinsir", "lapras"],
     objectives: ["Catch 10 Pokémon in the safari zone", "Catch one rare safari encounter"],
-    rewards: [["cobblemon:ultra_ball", 10], ["cobblemon:bottle_cap", 1], ["cobbledollars", 2500]],
+    rewards: [["cobblemon:ultra_ball", 10], ["obc:bottle_cap", 1], ["cobbledollars", 2500]],
   },
   {
     id: "fishing-tournament",
@@ -97,7 +97,7 @@ export const EVENT_PRESETS: EventPreset[] = [
     weather: "thunder",
     featured: ["tyranitar", "garchomp", "gyarados"],
     objectives: ["Defeat 5 boss-tier Pokémon", "Land the final blow on the weekend boss"],
-    rewards: [["cobblemon:master_ball", 1], ["cobblemon:gold_bottle_cap", 1], ["cobbledollars", 8000]],
+    rewards: [["cobblemon:master_ball", 1], ["obc:bottle_cap_gold", 1], ["cobbledollars", 8000]],
   },
   {
     id: "shiny-race",
@@ -108,7 +108,7 @@ export const EVENT_PRESETS: EventPreset[] = [
     weather: "any",
     featured: ["pikachu", "dratini", "growlithe"],
     objectives: ["Catch any shiny Pokémon", "Be the first server-wide shiny of the event"],
-    rewards: [["cobblemon:gold_bottle_cap", 1], ["cobblemon:ability_capsule", 1], ["cobbledollars", 6000]],
+    rewards: [["obc:bottle_cap_gold", 1], ["cobblemon:ability_capsule", 1], ["cobbledollars", 6000]],
   },
   {
     id: "blank",

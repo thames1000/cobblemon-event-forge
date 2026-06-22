@@ -49,7 +49,7 @@ const ITEM_POOL = [
   "cobblemon:rare_candy",
   "cobblemon:ultra_ball",
   "cobblemon:great_ball",
-  "cobblemon:bottle_cap",
+  "obc:bottle_cap",
   "cobblemon:exp_candy_xl",
   "cobblemon:ability_capsule",
   "cobblemon:choice_scarf",
@@ -113,7 +113,7 @@ export function randomEvent(difficulty: Difficulty): EventConfig {
       id: "champion",
       name: "Champion",
       actions: [
-        { kind: "item", itemId: "cobblemon:gold_bottle_cap", count: 1 },
+        { kind: "item", itemId: "obc:bottle_cap_gold", count: 1 },
         randomReward(theme, p.rewardMul),
       ],
     });

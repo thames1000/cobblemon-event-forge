@@ -109,18 +109,16 @@ export function buildSafariChecklist(opts: {
   L.push(`  ${s++}. Upload ${opts.datapackFileName} to <server>/world/datapacks/.`);
   if (config.arena.enabled && config.arena.mode === "single-biome") {
     L.push(`  ${s++}. RESTART the server (full stop/start — NOT /reload). The single-biome`);
-    L.push(`        arena dimension ${namespace}:zone only registers on restart; without this`);
-    L.push(`        create_arena fails with "Missing key ... ${namespace}:zone".`);
+    L.push(`        arena dimension ${namespace}:zone only registers on restart; until then`);
+    L.push(`        tickets can't warp players into it.`);
   } else {
     L.push(`  ${s++}. Run /reload (or restart).`);
   }
   L.push(`  ${s++}. Confirm with /datapack list — you should see "${namespace}".`);
   if (config.arena.enabled) {
-    const mirror = config.arena.mode === "single-biome" ? `${namespace}:zone` : config.arena.mirror.trim() || "minecraft:overworld";
-    L.push(`  ${s++}. Create the temporary arena world (Resource World mod) — run ONCE:`);
-    L.push(`        /function ${namespace}:create_arena`);
-    L.push(`        (this runs: /resourceworld create ${slug} mirror ${mirror})`);
-    L.push(`        Players warp into it automatically when they use a ticket.`);
+    L.push(`  ${s++}. The arena dimension ${namespace}:zone is ready after the restart — no extra`);
+    L.push(`        setup. Tickets warp players in (and back out) with VANILLA teleports, so`);
+    L.push(`        no Resource World mod and no op-level permissions are required.`);
   } else if (config.biomes.length) {
     L.push(`  ${s++}. Spawns are restricted to: ${config.biomes.join(", ")}. Host the safari there.`);
   } else {
@@ -143,7 +141,7 @@ export function buildSafariChecklist(opts: {
     L.push("TIMER (enforced)");
     L.push(`  - On entry a ${config.timeLimitMinutes}-minute countdown starts.`);
     if (warns.length) L.push(`  - Warnings (with a sound) at: ${warns.map((m) => `${m} min`).join(", ")} remaining.`);
-    L.push(`  - At 0 the player is sent home (/resourceworld home) automatically.`);
+    L.push(`  - At 0 the player is returned to exactly where they entered from, automatically.`);
     L.push(`  - Runs as a 1-second loop that only ticks while someone is inside.`);
     L.push("");
   }
@@ -156,12 +154,11 @@ export function buildSafariChecklist(opts: {
   L.push("TEARDOWN");
   const hasUninstall = config.arena.enabled || config.timer.enabled;
   if (hasUninstall) {
-    L.push(`  1. Run /function ${namespace}:uninstall —${config.arena.enabled ? ` deletes the temporary arena world` : ""}${config.arena.enabled && config.timer.enabled ? " and" : ""}${config.timer.enabled ? " clears timer scores" : ""}.`);
+    L.push(`  1. Run /function ${namespace}:uninstall — clears the safari's scoreboard scores.`);
     if (config.arena.enabled) {
-      L.push(`        Make sure no players are inside the arena first.`);
-      L.push(`        It runs /resourceworld delete ${slug} TWICE (delete needs confirmation —`);
-      L.push(`        one call only asks). Watch the console for "🗑 ... deleted".`);
-      L.push(`        If it still lingers, a server restart finalizes the file removal.`);
+      L.push(`        Make sure no players are inside the arena first (the timer returns them).`);
+      L.push(`        ${namespace}:zone is a normal datapack dimension; its region files stay on`);
+      L.push(`        disk until you delete <world>/dimensions/${namespace}/zone/.`);
     }
     L.push(`  2. Remove the datapack and /reload. Spawns stop immediately.`);
   } else {

@@ -43,12 +43,12 @@ export const CRATE_PRESETS: CratePreset[] = [
         ["cobblemon:rare_candy", "2", 40],
       ]),
       RARE([
-        ["cobblemon:bottle_cap", "1", 50],
+        ["obc:bottle_cap", "1", 50],
         ["cobblemon:ability_capsule", "1", 30],
         ["cobblemon:choice_scarf", "1", 20],
       ]),
       ULTRA([
-        ["cobblemon:gold_bottle_cap", "1", 70],
+        ["obc:bottle_cap_gold", "1", 70],
         ["cobblemon:master_ball", "1", 30],
       ]),
     ],
@@ -85,9 +85,9 @@ export const CRATE_PRESETS: CratePreset[] = [
       RARE([
         ["cobblemon:choice_scarf", "1", 40],
         ["cobblemon:ability_capsule", "1", 35],
-        ["cobblemon:bottle_cap", "1", 25],
+        ["obc:bottle_cap", "1", 25],
       ]),
-      ULTRA([["cobblemon:gold_bottle_cap", "1", 100]]),
+      ULTRA([["obc:bottle_cap_gold", "1", 100]]),
     ],
   },
   {
@@ -102,7 +102,7 @@ export const CRATE_PRESETS: CratePreset[] = [
         ["cobblemon:rare_candy", "2", 40],
       ]),
       RARE([
-        ["cobblemon:bottle_cap", "1", 60],
+        ["obc:bottle_cap", "1", 60],
         ["minecraft:diamond", "3", 40],
       ]),
     ],
@@ -118,12 +118,12 @@ export const CRATE_PRESETS: CratePreset[] = [
         ["cobblemon:ultra_ball", "15", 100],
       ]),
       RARE([
-        ["cobblemon:bottle_cap", "2", 50],
+        ["obc:bottle_cap", "2", 50],
         ["cobblemon:ability_capsule", "1", 50],
       ]),
       ULTRA([
         ["cobblemon:master_ball", "1", 60],
-        ["cobblemon:gold_bottle_cap", "1", 40],
+        ["obc:bottle_cap_gold", "1", 40],
       ]),
     ],
   },
@@ -142,7 +142,7 @@ export const CRATE_PRESETS: CratePreset[] = [
         ["cobblemon:rare_candy", "3", 50],
       ]),
       ULTRA([
-        ["cobblemon:gold_bottle_cap", "1", 100],
+        ["obc:bottle_cap_gold", "1", 100],
       ]),
     ],
   },
