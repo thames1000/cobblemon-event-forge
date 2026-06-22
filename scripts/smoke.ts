@@ -222,8 +222,9 @@ if (!keyAdv) errors.push("crate key: missing use advancement");
 if (keyAdv) {
   const doc = JSON.parse(keyAdv.contents);
   if (doc.criteria?.used?.trigger !== "minecraft:consume_item") errors.push("crate key: wrong trigger");
-  if (doc.criteria?.used?.conditions?.item?.predicates?.["minecraft:custom_data"]?.cobble_crate !== "safari_crate")
-    errors.push("crate key: custom_data predicate not wired");
+  // custom_data sub-predicate must be the SNBT STRING form (object form fails to load)
+  if (doc.criteria?.used?.conditions?.item?.predicates?.["minecraft:custom_data"] !== '{cobble_crate:"safari_crate"}')
+    errors.push("crate key: custom_data predicate not the SNBT string form");
   if (!String(doc.rewards?.function).endsWith(":open_safari_crate")) errors.push("crate key: reward not the open function");
 }
 if (!cres.bundle.files.some((f) => f.path.endsWith("give_safari_crate_key.mcfunction"))) errors.push("crate key: missing give function");
@@ -306,32 +307,29 @@ if (rewardAdv) {
 for (const p of ["safari_rules.txt", "npc_dialogue.txt", "sign_text.txt", "discord_announcement.md", "admin_checklist.txt"]) {
   if (!sfres.bundle.files.some((f) => f.path === p)) errors.push(`safari: missing side-car ${p}`);
 }
-// arena: single-biome dimension + create_arena mirrors it + uninstall(delete) + enter teleports in
+// arena: datapack dimension (single-biome=fixed, mirror=multi_noise), entered with VANILLA teleports
 const dim = sfres.bundle.files.find((f) => f.path.endsWith("/dimension/zone.json"));
-if (!dim) errors.push("safari: missing single-biome dimension");
+if (!dim) errors.push("safari: missing arena dimension");
 if (dim) {
   const d = JSON.parse(dim.contents);
   if (d.generator?.biome_source?.type !== "minecraft:fixed" || d.generator?.biome_source?.biome !== "minecraft:dark_forest")
     errors.push("safari: single-biome dimension wrong biome source");
 }
-const createArena = sfres.bundle.files.find((f) => f.path.endsWith("/function/create_arena.mcfunction"));
-if (!createArena || !/resourceworld create haunted_woods_safari mirror haunted_woods_safari:zone/.test(createArena.contents))
-  errors.push("safari: create_arena should mirror the single-biome dimension");
-// mirror mode falls back to the configured dimension and emits no dimension file
-const mirrorMode = generateSafari({ ...safari, arena: { ...safari.arena, mode: "mirror", mirror: "minecraft:overworld" } });
-if (mirrorMode.bundle.files.some((f) => f.path.endsWith("/dimension/zone.json"))) errors.push("safari: mirror mode should not emit a dimension");
-if (!mirrorMode.bundle.files.some((f) => /resourceworld create .* mirror minecraft:overworld/.test(f.contents))) errors.push("safari: mirror mode create wrong");
+// Resource World commands can't run from functions — none should appear anywhere
+if (sfres.bundle.files.some((f) => /\bresourceworld\b/.test(f.contents))) errors.push("safari: must not use resourceworld commands");
+if (sfres.bundle.files.some((f) => f.path.endsWith("/function/create_arena.mcfunction"))) errors.push("safari: stray create_arena function");
+// mirror mode still emits a dimension, but as a normal multi_noise overworld
+const mirrorMode = generateSafari({ ...safari, arena: { ...safari.arena, mode: "mirror" } });
+const mdim = mirrorMode.bundle.files.find((f) => f.path.endsWith("/dimension/zone.json"));
+if (!mdim || JSON.parse(mdim.contents).generator?.biome_source?.type !== "minecraft:multi_noise")
+  errors.push("safari: mirror mode should emit a multi_noise dimension");
 const uninstall = sfres.bundle.files.find((f) => f.path.endsWith("/function/uninstall.mcfunction"));
-if (!uninstall || !/resourceworld delete haunted_woods_safari/.test(uninstall.contents)) errors.push("safari: uninstall delete missing");
-// delete needs confirmation -> must appear TWICE
-if (uninstall && (uninstall.contents.match(/resourceworld delete haunted_woods_safari/g) || []).length < 2)
-  errors.push("safari: delete must run twice (confirmation)");
-// uninstall must NOT reference a predicate (breaks function load on some setups)
-if (uninstall && /if predicate/.test(uninstall.contents)) errors.push("safari: uninstall must not use a predicate (function-load risk)");
-// created/deleted notifications use `say` (console-visible)
-if (createArena && !/say .*arena world created!/.test(createArena.contents)) errors.push("safari: missing created say-notification");
-if (uninstall && !/say .*arena world deleted\./.test(uninstall.contents)) errors.push("safari: missing deleted say-notification");
-if (enterFn && !/resourceworld tp haunted_woods_safari/.test(enterFn.contents)) errors.push("safari: enter doesn't warp into arena");
+if (!uninstall || !/scoreboard players reset @a safari_time/.test(uninstall.contents)) errors.push("safari: uninstall doesn't reset timer scores");
+// warp IN: enter captures the entry point, then calls warp_<slug> (spreadplayers in the arena dim)
+if (enterFn && !/function haunted_woods_safari:warp_haunted_woods_safari/.test(enterFn.contents)) errors.push("safari: enter doesn't warp into arena");
+if (enterFn && !/store result score @s safari_ret_x run data get entity @s Pos\[0\]/.test(enterFn.contents)) errors.push("safari: enter doesn't capture the return point");
+const warpFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/warp_haunted_woods_safari.mcfunction"));
+if (!warpFn || !/execute in haunted_woods_safari:zone run spreadplayers .* @s/.test(warpFn.contents)) errors.push("safari: warp doesn't spreadplayers into the arena dim");
 // entry kit: 30 safari balls
 if (enterFn && !/give @s cobblemon:safari_ball 30/.test(enterFn.contents)) errors.push("safari: enter doesn't give 30 safari balls");
 // timer: enter sets 1800s + starts loop; tick warns at 900/300/60 + sends home; load creates objective
@@ -344,22 +342,26 @@ if (tickFn) {
   if (!/safari_time=0\}.*run function haunted_woods_safari:safari_home/.test(tickFn.contents)) errors.push("safari: tick doesn't send expired players home");
   if (!/schedule function haunted_woods_safari:safari_tick 1s replace/.test(tickFn.contents)) errors.push("safari: tick doesn't keep the loop alive");
 }
+// warp BACK: safari_home -> return_<slug> -> do_return macro tp to captured overworld coords
 const homeFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/safari_home.mcfunction"));
-if (!homeFn || !/resourceworld home/.test(homeFn.contents)) errors.push("safari: safari_home doesn't return home");
+if (!homeFn || !/function haunted_woods_safari:return_haunted_woods_safari/.test(homeFn.contents)) errors.push("safari: safari_home doesn't return the player");
+const retFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/do_return_haunted_woods_safari.mcfunction"));
+if (!retFn || !/\$execute in minecraft:overworld run tp @s \$\(x\) \$\(y\) \$\(z\)/.test(retFn.contents)) errors.push("safari: do_return macro tp wrong");
 const loadFnS = sfres.bundle.files.find((f) => f.path.endsWith("/function/load.mcfunction"));
 if (!loadFnS || !/scoreboard objectives add safari_time dummy/.test(loadFnS.contents)) errors.push("safari: load doesn't create the timer objective");
+if (!loadFnS || !/scoreboard objectives add safari_ret_x dummy/.test(loadFnS.contents)) errors.push("safari: load doesn't create the return objective");
 if (!sfres.bundle.files.some((f) => f.path === "data/minecraft/tags/function/load.json")) errors.push("safari: missing load tag");
 console.log("\n=== safari_tick ===");
 console.log(tickFn?.contents);
-// arena disabled => no create_arena / uninstall, enter has no tp
+// arena disabled => no dimension / warp / return
 const noArena = generateSafari({ ...safari, arena: { ...safari.arena, enabled: false } });
-if (noArena.bundle.files.some((f) => f.path.endsWith("/function/create_arena.mcfunction"))) errors.push("safari: create_arena present when arena disabled");
-if (noArena.bundle.files.some((f) => /resourceworld tp/.test(f.contents))) errors.push("safari: tp present when arena disabled");
+if (noArena.bundle.files.some((f) => f.path.endsWith("/dimension/zone.json"))) errors.push("safari: dimension present when arena disabled");
+if (noArena.bundle.files.some((f) => /spreadplayers|:warp_/.test(f.contents))) errors.push("safari: warp present when arena disabled");
 
 console.log("\n=== enter function ===");
 console.log(enterFn?.contents);
-console.log("=== create_arena ===");
-console.log(createArena?.contents);
+console.log("=== warp function ===");
+console.log(warpFn?.contents);
 
 if (errors.length) {
   console.error("\nSMOKE FAILED:\n" + errors.map((e) => " - " + e).join("\n"));
