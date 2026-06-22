@@ -12,7 +12,7 @@ import { generateBountyBoard } from "../src/lib/bounty/generate";
 import { newCommunityGoal } from "../src/lib/bounty/types";
 import type { BountyConfig } from "../src/lib/bounty/types";
 import { generateItems, giveCommand } from "../src/lib/item/generate";
-import { newItem } from "../src/lib/item/types";
+import { newItem, NO_FORMAT } from "../src/lib/item/types";
 import type { ItemConfig } from "../src/lib/item/types";
 
 // catalog: the full National Dex (#1–1025) with Cobblemon-style ids + legendary flags
@@ -597,28 +597,45 @@ console.log(board?.contents + "\n---\n" + cContrib?.contents);
 const itemcfg: ItemConfig = {
   title: "Event Items", packFormat: 48,
   items: [
-    { ...newItem("i1"), baseItem: "minecraft:name_tag", name: "Safari Ticket", nameColor: "green", glint: true, rarity: "rare", count: 1, lore: [{ text: "Enter the zone", color: "gray" }] },
-    { ...newItem("i2"), baseItem: "minecraft:blaze_rod", name: "Legendary Lure", nameColor: "gold", unbreakable: true, customModelData: 7, count: 2, lore: [] },
-    { ...newItem("i3"), baseItem: "minecraft:paper", name: "Safari Ticket", nameColor: "green", count: 1, lore: [] }, // dup name → distinct file
+    newItem("i1", {
+      baseItem: "minecraft:netherite_sword", name: "Champion's Blade", nameColor: "gold", nameFormat: { ...NO_FORMAT, bold: true }, glint: true, rarity: "epic", count: 1,
+      lore: [{ text: "Forged for the bold", color: "yellow", format: { ...NO_FORMAT, italic: true } }],
+      enchantments: [{ id: "minecraft:sharpness", level: 5 }, { id: "minecraft:unbreaking", level: 3 }],
+      attributes: [{ type: "attack_damage", amount: 6, operation: "add_value", slot: "mainhand" }],
+      unbreakable: true, customDataKey: "event item", customDataValue: "champion", fireResistant: true, maxStackSize: 1, customModelData: 7,
+    }),
+    newItem("i2", { baseItem: "minecraft:player_head", name: "Gym Leader", nameColor: "aqua", headOwner: "Notch" }),
+    newItem("i3", { baseItem: "minecraft:netherite_sword", name: "Champion's Blade" }), // dup name → distinct file
   ],
 };
 const items = generateItems(itemcfg);
 if (!items.validation.ok) errors.push("item: invalid datapack");
 if (items.itemCount !== 3) errors.push(`item: expected 3 items, got ${items.itemCount}`);
 const cmd1 = giveCommand(itemcfg.items[0], 48);
-if (!/^give @p minecraft:name_tag\[/.test(cmd1)) errors.push("item: give target/base wrong");
-if (!/minecraft:item_name='\{"text":"Safari Ticket","color":"green"\}'/.test(cmd1)) errors.push("item: item_name component wrong");
-if (!/minecraft:lore=\['\{"text":"Enter the zone","color":"gray","italic":false\}'\]/.test(cmd1)) errors.push("item: lore component wrong");
-if (!/minecraft:enchantment_glint_override=true/.test(cmd1) || !/minecraft:rarity="rare"/.test(cmd1)) errors.push("item: glint/rarity missing");
-if (!/\] 1$/.test(cmd1)) errors.push("item: count suffix wrong");
-// version-aware custom_model_data: int <1.21.4, floats structure after
-if (!/minecraft:custom_model_data=7\b/.test(giveCommand(itemcfg.items[1], 48))) errors.push("item: pack-48 custom_model_data should be an int");
-if (!/minecraft:custom_model_data=\{floats:\[7f\]\}/.test(giveCommand(itemcfg.items[1], 61))) errors.push("item: pack-61 custom_model_data should be the floats structure");
-if (!/minecraft:unbreakable=\{\}/.test(giveCommand(itemcfg.items[1], 48))) errors.push("item: unbreakable component missing");
+if (!/^give @p minecraft:netherite_sword\[/.test(cmd1)) errors.push("item: give target/base wrong");
+if (!/minecraft:item_name='\{"text":"Champion\\'s Blade","color":"gold","italic":false,"bold":true\}'/.test(cmd1)) errors.push("item: item_name formatting wrong");
+if (!/minecraft:lore=\['\{"text":"Forged for the bold","color":"yellow","italic":true\}'\]/.test(cmd1)) errors.push("item: lore formatting wrong");
+if (!/minecraft:enchantments=\{levels:\{"minecraft:sharpness":5,"minecraft:unbreaking":3\}\}/.test(cmd1)) errors.push("item: enchantments component wrong");
+if (!/minecraft:rarity="epic"/.test(cmd1) || !/minecraft:enchantment_glint_override=true/.test(cmd1)) errors.push("item: glint/rarity missing");
+if (!/minecraft:custom_data=\{event_item:"champion"\}/.test(cmd1)) errors.push("item: custom_data key not sanitized/emitted");
+if (!/minecraft:max_stack_size=1/.test(cmd1)) errors.push("item: max_stack_size missing");
+// attribute_modifiers: structure + version-aware generic. prefix
+if (!/minecraft:attribute_modifiers=\[\{type:"minecraft:generic\.attack_damage",amount:6,operation:"add_value",slot:"mainhand",id:"eventforge:mod_0"\}\]/.test(cmd1))
+  errors.push("item: pack-48 attribute should use the generic. prefix + full structure");
+if (!/type:"minecraft:attack_damage"/.test(giveCommand(itemcfg.items[0], 57))) errors.push("item: pack-57 attribute should drop the generic. prefix");
+// fire_resistant → damage_resistant at 1.21.5 (pack 71)
+if (!/minecraft:fire_resistant=\{\}/.test(cmd1)) errors.push("item: pack-48 should use fire_resistant");
+if (!/minecraft:damage_resistant=\{types:"#minecraft:is_fire"\}/.test(giveCommand(itemcfg.items[0], 71))) errors.push("item: pack-71 should use damage_resistant");
+// version-aware custom_model_data
+if (!/minecraft:custom_model_data=7\b/.test(cmd1)) errors.push("item: pack-48 custom_model_data should be an int");
+if (!/minecraft:custom_model_data=\{floats:\[7f\]\}/.test(giveCommand(itemcfg.items[0], 61))) errors.push("item: pack-61 custom_model_data should be the floats structure");
+// player head profile (only on player_head base)
+if (!/minecraft:profile=\{name:"Notch"\}/.test(giveCommand(itemcfg.items[1], 48))) errors.push("item: player_head profile missing");
+// no custom_data when key blank (toId fallback bug guard)
+if (/custom_data/.test(giveCommand(itemcfg.items[1], 48))) errors.push("item: empty custom_data key should emit nothing");
 // datapack give functions, with dedup on duplicate names
 const giveFns = items.bundle.files.filter((f) => /\/function\/give_.*\.mcfunction$/.test(f.path));
-if (giveFns.length !== 3) errors.push(`item: expected 3 give functions, got ${giveFns.length}`);
-if (new Set(giveFns.map((f) => f.path)).size !== 3) errors.push("item: duplicate give-function file names (dedup failed)");
+if (giveFns.length !== 3 || new Set(giveFns.map((f) => f.path)).size !== 3) errors.push("item: give-function dedup failed");
 if (!items.bundle.files.some((f) => f.path === "give_commands.txt")) errors.push("item: missing give_commands.txt sidecar");
 console.log("\n=== item: give command ===");
 console.log("/" + cmd1);
