@@ -56,10 +56,17 @@ export function buildSpawnFiles(opts: {
   featured: FeaturedMon[];
   /** Optional biome ids/tags to restrict spawns to (e.g. "#minecraft:is_forest"). */
   biomes?: string[];
+  /**
+   * Optional dimension ids to restrict spawns to (e.g. "resource_world:zone"). More
+   * robust than `biomes` for a mirrored / custom-biome arena, where the biome id may
+   * not survive into the runtime world but the dimension id always matches.
+   */
+  dimensions?: string[];
 }): GeneratedFile[] {
   const weather = weatherCondition(opts.weather);
   const biomes = (opts.biomes ?? []).map((b) => b.trim()).filter(Boolean);
-  const cond = { ...weather, ...(biomes.length ? { biomes } : {}) };
+  const dimensions = (opts.dimensions ?? []).map((d) => d.trim()).filter(Boolean);
+  const cond = { ...weather, ...(biomes.length ? { biomes } : {}), ...(dimensions.length ? { dimensions } : {}) };
   return opts.featured.map((mon) => {
     const speciesId = toId(mon.species);
     const spawn = {

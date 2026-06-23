@@ -47,12 +47,12 @@ export interface SafariTimer {
   /** Minutes-remaining marks to warn at, e.g. [15, 5, 1]. */
   warnings: number[];
   /**
-   * Show each player a persistent boss bar at the top of their screen counting
-   * down their remaining time (M:SS, shrinks as time runs out, turns red in the
-   * final minute). Pure vanilla `bossbar` commands — no client mod required.
+   * Show each player an on-screen countdown above their hotbar (M:SS, turns red in
+   * the final minute), refreshed each second via the vanilla action bar — no client
+   * mod required, and nothing saved to the world so it can never be orphaned.
    * Defaults to on; set false to keep chat-only warnings.
    */
-  bossbar?: boolean;
+  hud?: boolean;
 }
 
 /** Optional "catch N of a type" reward objective for finishing the safari. */

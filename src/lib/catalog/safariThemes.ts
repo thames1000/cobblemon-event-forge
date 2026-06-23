@@ -157,7 +157,7 @@ export function configFromSafariTheme(themeId: string): SafariConfig {
     ticket: { enabled: true, baseItem: "minecraft:name_tag", glint: true },
     safariBalls: 30,
     timeLimitMinutes: 30,
-    timer: { enabled: true, warnings: [15, 5, 1], bossbar: true },
+    timer: { enabled: true, warnings: [15, 5, 1], hud: true },
     leaveEarly: true,
     rules: [...t.rules],
     reward: {

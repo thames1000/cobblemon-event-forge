@@ -396,10 +396,10 @@ export default function SafariPage() {
                   <input
                     type="checkbox"
                     className="h-4 w-4 accent-amber-400"
-                    checked={config.timer.bossbar !== false}
-                    onChange={(e) => patchTimer({ bossbar: e.target.checked })}
+                    checked={config.timer.hud !== false}
+                    onChange={(e) => patchTimer({ hud: e.target.checked })}
                   />
-                  On-screen boss bar (top of screen, counts down M:SS — no client mod)
+                  On-screen timer (action bar above hotbar, counts down M:SS — no client mod)
                 </label>
               </div>
             )}

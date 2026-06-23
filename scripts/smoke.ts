@@ -312,9 +312,12 @@ if (!sfres.validation.ok) errors.push("safari: invalid datapack");
 for (const f of sfres.bundle.files) {
   if (f.path.endsWith(".json")) { try { JSON.parse(f.contents); } catch { errors.push(`safari: bad json ${f.path}`); } }
 }
-// spawns carry the biome condition — exclusive (default) ties them to the custom arena biome
+// exclusive (default) gates the featured spawns on the resource-world DIMENSION (robust
+// against the custom biome not surviving the mod's mirror), not on the biome
 const gastly = sfres.bundle.files.find((f) => f.path.endsWith("spawn_pool_world/gastly.json"));
-if (gastly && !/"biomes"\s*:\s*\[\s*"haunted_woods_safari:zone_biome"/.test(gastly.contents)) errors.push("safari: exclusive spawn not conditioned to the custom biome");
+if (gastly && !/"dimensions"\s*:\s*\[\s*"resource_world:haunted_woods_safari"/.test(gastly.contents))
+  errors.push("safari: exclusive spawn not conditioned to the arena dimension");
+if (gastly && /"biomes"/.test(gastly.contents)) errors.push("safari: exclusive spawn should not use a biome condition");
 // entry ticket: advancement + give + enter
 if (!sfres.bundle.files.some((f) => f.path.endsWith("/advancement/use_haunted_woods_safari.json"))) errors.push("safari: missing ticket advancement");
 const enterFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/enter_haunted_woods_safari.mcfunction"));
@@ -352,18 +355,32 @@ else {
   if (!Array.isArray(zb.features) || !zb.features.some((step: unknown[]) => Array.isArray(step) && step.length > 0))
     errors.push("safari: arena biome didn't copy the biome's vegetation features");
 }
-// Resource World commands can't run from functions — none should appear anywhere
-if (sfres.bundle.files.some((f) => /\bresourceworld\b/.test(f.contents))) errors.push("safari: must not use resourceworld commands");
-if (sfres.bundle.files.some((f) => f.path.endsWith("/function/create_arena.mcfunction"))) errors.push("safari: stray create_arena function");
+// The mod owns the world lifecycle (create/reset) but never the teleport. create_arena
+// mirrors :zone into the resettable resource world; reset_zone wipes it live.
+const createArena = sfres.bundle.files.find((f) => f.path.endsWith("/function/create_arena.mcfunction"));
+if (!createArena || !/resourceworld create haunted_woods_safari mirror haunted_woods_safari:zone/.test(createArena.contents))
+  errors.push("safari: create_arena doesn't mirror :zone into the resource world");
+const resetZone = sfres.bundle.files.find((f) => f.path.endsWith("/function/reset_zone_haunted_woods_safari.mcfunction"));
+if (!resetZone || !/resourceworld reset haunted_woods_safari/.test(resetZone.contents))
+  errors.push("safari: reset_zone doesn't run resourceworld reset");
+// reset is a MANUAL admin command, guarded so it won't wipe the world while players are inside
+if (resetZone && !/unless entity @a\[tag=haunted_woods_safari_inzone\] run resourceworld reset/.test(resetZone.contents))
+  errors.push("safari: reset_zone isn't guarded against resetting while occupied");
+if (sfres.bundle.files.some((f) => f.path.endsWith("/function/reset_watch_haunted_woods_safari.mcfunction")))
+  errors.push("safari: stray auto-reset watcher (reset should be manual)");
 // non-exclusive falls back to the themed vanilla biome + spawn tags, and emits no custom biome
 const themed = generateSafari({ ...safari, arena: { ...safari.arena, exclusive: false } });
 const tdim = themed.bundle.files.find((f) => f.path.endsWith("/dimension/zone.json"));
 if (!tdim || JSON.parse(tdim.contents).generator?.biome_source?.biome !== "minecraft:dark_forest")
   errors.push("safari: non-exclusive single-biome wrong biome source");
 if (themed.bundle.files.some((f) => f.path.endsWith("/worldgen/biome/zone_biome.json"))) errors.push("safari: custom biome present when not exclusive");
+// spawns are never gated by biome or weather (any biome, any weather, always); with an
+// arena they're dimension-locked, and the condition must carry no biome/weather keys
 const themedGastly = themed.bundle.files.find((f) => f.path.endsWith("spawn_pool_world/gastly.json"));
-if (themedGastly && !/"biomes"\s*:\s*\[\s*"#minecraft:is_forest"/.test(themedGastly.contents))
-  errors.push("safari: non-exclusive spawn missing the themed biome tag");
+if (themedGastly && !/"dimensions"\s*:\s*\[\s*"resource_world:haunted_woods_safari"/.test(themedGastly.contents))
+  errors.push("safari: spawn not dimension-locked to the arena");
+if (themedGastly && /"biomes"|"isRaining"|"isThundering"|"canSeeSky"/.test(themedGastly.contents))
+  errors.push("safari: spawn should not be gated by biome or weather");
 // mirror mode (non-exclusive) still emits a dimension as a normal multi_noise overworld
 const mirrorMode = generateSafari({ ...safari, arena: { ...safari.arena, mode: "mirror", exclusive: false } });
 const mdim = mirrorMode.bundle.files.find((f) => f.path.endsWith("/dimension/zone.json"));
@@ -375,7 +392,9 @@ if (!uninstall || !/scoreboard players reset @a safari_time/.test(uninstall.cont
 if (enterFn && !/function haunted_woods_safari:warp_haunted_woods_safari/.test(enterFn.contents)) errors.push("safari: enter doesn't warp into arena");
 if (enterFn && !/store result score @s safari_ret_x run data get entity @s Pos\[0\]/.test(enterFn.contents)) errors.push("safari: enter doesn't capture the return point");
 const warpFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/warp_haunted_woods_safari.mcfunction"));
-if (!warpFn || !/execute in haunted_woods_safari:zone run spreadplayers .* @s/.test(warpFn.contents)) errors.push("safari: warp doesn't spreadplayers into the arena dim");
+if (!warpFn || !/execute in resource_world:haunted_woods_safari run spreadplayers .* @s/.test(warpFn.contents))
+  errors.push("safari: warp doesn't spreadplayers into the resource-world dim");
+if (warpFn && /\bresourceworld\b/.test(warpFn.contents)) errors.push("safari: warp must use vanilla tp, not a resourceworld command");
 // entry kit: 30 safari balls
 if (enterFn && !/give @s cobblemon:safari_ball 30/.test(enterFn.contents)) errors.push("safari: enter doesn't give 30 safari balls");
 // timer: enter sets 1800s + starts loop; tick warns at 900/300/60 + sends home; load creates objective
@@ -397,22 +416,23 @@ const loadFnS = sfres.bundle.files.find((f) => f.path.endsWith("/function/load.m
 if (!loadFnS || !/scoreboard objectives add safari_time dummy/.test(loadFnS.contents)) errors.push("safari: load doesn't create the timer objective");
 if (!loadFnS || !/scoreboard objectives add safari_ret_x dummy/.test(loadFnS.contents)) errors.push("safari: load doesn't create the return objective");
 if (!sfres.bundle.files.some((f) => f.path === "data/minecraft/tags/function/load.json")) errors.push("safari: missing load tag");
-// on-screen boss bar (default on): enter creates a per-player bar, tick refreshes it, home removes it
-if (enterFn && !/function haunted_woods_safari:bar_create_haunted_woods_safari with storage/.test(enterFn.contents))
-  errors.push("safari: enter doesn't create the boss bar");
-if (tickFn && !/function haunted_woods_safari:bar_update_haunted_woods_safari/.test(tickFn.contents))
-  errors.push("safari: tick doesn't refresh the boss bar");
-if (homeFn && !/function haunted_woods_safari:bar_remove_haunted_woods_safari/.test(homeFn.contents))
-  errors.push("safari: home doesn't remove the boss bar");
-const barApply = sfres.bundle.files.find((f) => f.path.endsWith("/function/bar_apply_haunted_woods_safari.mcfunction"));
-if (!barApply || !/\$bossbar set haunted_woods_safari:t\$\(id\) value \$\(secs\)/.test(barApply.contents))
-  errors.push("safari: bar_apply macro doesn't set the per-player bar value");
-if (loadFnS && !/scoreboard objectives add safari_bar dummy/.test(loadFnS.contents)) errors.push("safari: load doesn't create the bar id objective");
-// opt-out: timer.bossbar === false drops all bar plumbing
-const noBar = generateSafari({ ...safari, timer: { ...safari.timer, bossbar: false } });
-if (noBar.bundle.files.some((f) => /\/function\/bar_(create|update|apply|remove|delete)_/.test(f.path)))
-  errors.push("safari: bar functions present when bossbar disabled");
-if (noBar.bundle.files.some((f) => /\bbossbar\b/.test(f.contents))) errors.push("safari: bossbar commands present when disabled");
+// on-screen action-bar timer (default on): tick refreshes it; nothing persistent to clean up
+if (tickFn && !/function haunted_woods_safari:hud_update_haunted_woods_safari/.test(tickFn.contents))
+  errors.push("safari: tick doesn't refresh the action-bar timer");
+if (homeFn && !/tag @s remove haunted_woods_safari_inzone/.test(homeFn.contents))
+  errors.push("safari: home doesn't remove the inzone tag");
+const hudApply = sfres.bundle.files.find((f) => f.path.endsWith("/function/hud_apply_haunted_woods_safari.mcfunction"));
+if (!hudApply || !/\$title @s actionbar /.test(hudApply.contents))
+  errors.push("safari: hud_apply macro doesn't write the action bar");
+if (loadFnS && !/scoreboard objectives add safari_calc dummy/.test(loadFnS.contents)) errors.push("safari: load doesn't create the timer calc objective");
+// the timer loop must be scoped to THIS zone's players so multiple safaris don't cross-talk
+if (tickFn && !/tag=haunted_woods_safari_inzone/.test(tickFn.contents)) errors.push("safari: tick not scoped by inzone tag");
+// the on-screen timer is a transient action bar — nothing should ever create a saved bossbar
+if (sfres.bundle.files.some((f) => /\bbossbar\b/.test(f.contents))) errors.push("safari: uses bossbar (should be a transient action bar)");
+// opt-out: timer.hud === false drops the on-screen timer plumbing
+const noBar = generateSafari({ ...safari, timer: { ...safari.timer, hud: false } });
+if (noBar.bundle.files.some((f) => /\/function\/hud_(update|apply)_/.test(f.path)))
+  errors.push("safari: hud functions present when on-screen timer disabled");
 // leave-early item (default on): given on entry, advancement reward exits via a non-op function
 if (enterFn && !/give @s minecraft:clock\[.*safari:"haunted_woods_safari_leave"/.test(enterFn.contents))
   errors.push("safari: enter doesn't hand out the leave-early item");
