@@ -119,8 +119,9 @@ export function buildSafariChecklist(opts: {
     L.push(`  ${s++}. Create the arena world ONCE (mirrors ${namespace}:zone, inheriting the`);
     L.push(`        exclusive biome) — needs the Resource World mod:`);
     L.push(`           /function ${namespace}:create_arena`);
-    L.push(`        Tickets then warp players IN with vanilla teleports (no op level); the zone`);
-    L.push(`        AUTO-RESETS via the mod the moment the last player leaves.`);
+    L.push(`        Tickets then warp players IN with vanilla teleports (no op level). To get a`);
+    L.push(`        fresh zone, run /function ${namespace}:reset_zone_${slug} while it's EMPTY`);
+    L.push(`        (live wipe via the mod, no restart — it's guarded so it won't reset on players).`);
     if (config.arena.exclusive !== false) {
       L.push(`        EXCLUSIVE SPAWNS: the arena uses a custom biome, so ONLY your selected`);
       L.push(`        Pokémon spawn there (no default Cobblemon spawns, no vanilla mobs).`);
@@ -146,8 +147,8 @@ export function buildSafariChecklist(opts: {
     const warns = [...config.timer.warnings].filter((m) => m > 0 && m < config.timeLimitMinutes).sort((a, b) => b - a);
     L.push("TIMER (enforced)");
     L.push(`  - On entry a ${config.timeLimitMinutes}-minute countdown starts.`);
-    if (config.timer.bossbar !== false)
-      L.push(`  - A boss bar at the top of the player's screen shows their time left (M:SS), no client mod needed.`);
+    if (config.timer.hud !== false)
+      L.push(`  - An on-screen action-bar timer shows their time left (M:SS) above the hotbar, no client mod needed.`);
     if (warns.length) L.push(`  - Warnings (with a sound) at: ${warns.map((m) => `${m} min`).join(", ")} remaining.`);
     L.push(`  - At 0 the player is returned to exactly where they entered from, automatically.`);
     L.push(`  - Runs as a 1-second loop that only ticks while someone is inside.`);
@@ -172,8 +173,8 @@ export function buildSafariChecklist(opts: {
     L.push(`  1. Run /function ${namespace}:uninstall — clears scores${config.arena.enabled ? " and DELETES the resource world" : ""}.`);
     if (config.arena.enabled) {
       L.push(`        Make sure no players are inside the arena first (the timer returns them).`);
-      L.push(`        Reset anytime WITHOUT a restart by emptying the zone — it auto-wipes — or`);
-      L.push(`        run /function ${namespace}:reset_zone_${slug} (resourceworld reset) yourself.`);
+      L.push(`        Reset anytime WITHOUT a restart: empty the zone, then run`);
+      L.push(`        /function ${namespace}:reset_zone_${slug} (resourceworld reset).`);
     }
     L.push(`  2. Remove the datapack and /reload. Spawns stop immediately.`);
   } else {
