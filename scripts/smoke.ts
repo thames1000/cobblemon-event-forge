@@ -914,6 +914,65 @@ if (tmOff.bundle.files.some((f) => /score_battle/.test(f.path))) errors.push("te
 console.log("\n=== teams: score_catch + winner ===");
 console.log(tCatch?.contents + "\n---\n" + tWin?.contents);
 
+// === Leaderboard helper ===
+import { newLeaderboardConfig } from "../src/lib/leaderboard/types";
+import { generateLeaderboard } from "../src/lib/leaderboard/generate";
+
+const lbCfg = newLeaderboardConfig(48);
+lbCfg.title = "Safari Points";
+lbCfg.unit = "catches";
+lbCfg.autoCatch = { enabled: true, amount: 1, type: "ghost" };
+const lb = generateLeaderboard(lbCfg);
+const lf = (s: string) => lb.bundle.files.find((f) => f.path.endsWith(s));
+if (!lb.validation.ok) errors.push("leaderboard: invalid datapack");
+for (const f of lb.bundle.files) {
+  if (f.path.endsWith(".json")) { try { JSON.parse(f.contents); } catch { errors.push(`leaderboard: bad json ${f.path}`); } }
+}
+const obj = "safari_points"; // toId(title), used as the objective + namespace
+// admin add/take functions live under score/
+const lAdd = lf("/function/score/add_10.mcfunction");
+if (!lAdd || !new RegExp(`scoreboard players add @s ${obj} 10`).test(lAdd.contents)) errors.push("leaderboard: score/add_10 missing or wrong objective");
+if (!lf("/function/score/take_10.mcfunction")) errors.push("leaderboard: score/take_10 missing");
+if (!lf("/function/score/reset_player.mcfunction") || !lf("/function/score/reset_all.mcfunction")) errors.push("leaderboard: reset functions missing");
+const lShow = lf("/function/score/show.mcfunction");
+if (!lShow || !new RegExp(`"score":\\{"name":"@s","objective":"${obj}"\\}`).test(lShow.contents)) errors.push("leaderboard: show missing the per-player score component");
+// auto-scoring: count-less, self-re-arming
+const lAdv = lf("/advancement/auto_catch.json");
+if (!lAdv) errors.push("leaderboard: missing auto_catch advancement");
+else {
+  const d = JSON.parse(lAdv.contents);
+  if (d.criteria?.hit?.trigger !== "cobblemon:catch_pokemon") errors.push("leaderboard: auto_catch wrong trigger");
+  if (d.criteria?.hit?.conditions?.count != null) errors.push("leaderboard: auto_catch must be count-less");
+  if (d.criteria?.hit?.conditions?.type !== "ghost") errors.push("leaderboard: auto_catch type filter missing");
+}
+const lAuto = lf("/function/auto_catch.mcfunction");
+if (lAuto && (!/advancement revoke @s only safari_points:auto_catch/.test(lAuto.contents) || !new RegExp(`scoreboard players add @s ${obj} 1`).test(lAuto.contents))) errors.push("leaderboard: auto_catch doesn't re-arm + score");
+// disabled auto rules emit nothing
+if (lb.bundle.files.some((f) => /auto_(battle|shiny)/.test(f.path))) errors.push("leaderboard: disabled auto rules should not emit files");
+// lifecycle: load creates objective + sidebar; uninstall clears both
+const lLoad = lf("/function/load.mcfunction");
+if (!lLoad || !new RegExp(`scoreboard objectives add ${obj} dummy`).test(lLoad.contents)) errors.push("leaderboard: load doesn't create the objective");
+if (lLoad && !new RegExp(`scoreboard objectives setdisplay sidebar ${obj}`).test(lLoad.contents)) errors.push("leaderboard: load doesn't show the sidebar");
+const lUn = lf("/function/uninstall.mcfunction");
+if (!lUn || !/scoreboard objectives setdisplay sidebar$/m.test(lUn.contents) || !new RegExp(`scoreboard objectives remove ${obj}`).test(lUn.contents)) errors.push("leaderboard: uninstall doesn't tear down");
+if (!lb.bundle.files.some((f) => f.path === "data/minecraft/tags/function/load.json")) errors.push("leaderboard: missing load tag");
+// side-cars
+for (const p of ["score_commands.txt", "leaderboard_template.md", "leaderboard.json", "admin_checklist.txt"]) {
+  if (!lb.bundle.files.some((f) => f.path === p)) errors.push(`leaderboard: missing side-car ${p}`);
+}
+// leaderboard.json carries `top` rank rows keyed by the unit
+const lJson = lf("leaderboard.json");
+if (lJson) {
+  const d = JSON.parse(lJson.contents);
+  if (!Array.isArray(d.standings) || d.standings.length !== lbCfg.top) errors.push("leaderboard.json: wrong number of standing rows");
+  if (d.objective !== obj || !("catches" in (d.standings[0] ?? {}))) errors.push("leaderboard.json: objective/unit not reflected");
+}
+// sidebar off drops the sidebar plumbing
+const lbOff = generateLeaderboard({ ...lbCfg, sidebar: false });
+if (lbOff.bundle.files.find((f) => f.path.endsWith("/function/load.mcfunction"))?.contents.includes("setdisplay")) errors.push("leaderboard: sidebar plumbing present when disabled");
+console.log("\n=== leaderboard: score/show + auto_catch ===");
+console.log(lShow?.contents + "\n---\n" + lAuto?.contents);
+
 if (errors.length) {
   console.error("\nSMOKE FAILED:\n" + errors.map((e) => " - " + e).join("\n"));
   process.exit(1);
