@@ -109,16 +109,18 @@ export function buildSafariChecklist(opts: {
   L.push(`  ${s++}. Upload ${opts.datapackFileName} to <server>/world/datapacks/.`);
   if (config.arena.enabled && config.arena.mode === "single-biome") {
     L.push(`  ${s++}. RESTART the server (full stop/start — NOT /reload). The single-biome`);
-    L.push(`        arena dimension ${namespace}:zone only registers on restart; until then`);
-    L.push(`        tickets can't warp players into it.`);
+    L.push(`        arena dimension ${namespace}:zone only registers on restart; create_arena`);
+    L.push(`        (next step) mirrors it, so run that AFTER the restart.`);
   } else {
     L.push(`  ${s++}. Run /reload (or restart).`);
   }
   L.push(`  ${s++}. Confirm with /datapack list — you should see "${namespace}".`);
   if (config.arena.enabled) {
-    L.push(`  ${s++}. The arena dimension ${namespace}:zone is ready after the restart — no extra`);
-    L.push(`        setup. Tickets warp players in (and back out) with VANILLA teleports, so`);
-    L.push(`        no Resource World mod and no op-level permissions are required.`);
+    L.push(`  ${s++}. Create the arena world ONCE (mirrors ${namespace}:zone, inheriting the`);
+    L.push(`        exclusive biome) — needs the Resource World mod:`);
+    L.push(`           /function ${namespace}:create_arena`);
+    L.push(`        Tickets then warp players IN with vanilla teleports (no op level); the zone`);
+    L.push(`        AUTO-RESETS via the mod the moment the last player leaves.`);
     if (config.arena.exclusive !== false) {
       L.push(`        EXCLUSIVE SPAWNS: the arena uses a custom biome, so ONLY your selected`);
       L.push(`        Pokémon spawn there (no default Cobblemon spawns, no vanilla mobs).`);
@@ -167,11 +169,11 @@ export function buildSafariChecklist(opts: {
   L.push("TEARDOWN");
   const hasUninstall = config.arena.enabled || config.timer.enabled;
   if (hasUninstall) {
-    L.push(`  1. Run /function ${namespace}:uninstall — clears the safari's scoreboard scores.`);
+    L.push(`  1. Run /function ${namespace}:uninstall — clears scores${config.arena.enabled ? " and DELETES the resource world" : ""}.`);
     if (config.arena.enabled) {
       L.push(`        Make sure no players are inside the arena first (the timer returns them).`);
-      L.push(`        ${namespace}:zone is a normal datapack dimension; its region files stay on`);
-      L.push(`        disk until you delete <world>/dimensions/${namespace}/zone/.`);
+      L.push(`        Reset anytime WITHOUT a restart by emptying the zone — it auto-wipes — or`);
+      L.push(`        run /function ${namespace}:reset_zone_${slug} (resourceworld reset) yourself.`);
     }
     L.push(`  2. Remove the datapack and /reload. Spawns stop immediately.`);
   } else {

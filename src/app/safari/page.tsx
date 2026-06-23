@@ -228,9 +228,9 @@ export default function SafariPage() {
               </label>
             </div>
             <p className="mb-3 text-xs text-slate-500">
-              Generate a <b>standalone arena dimension</b> for the zone. Tickets warp players in and back
-              out with <b>vanilla teleports</b> — no Resource World mod and no op permissions needed. Requires a
-              one-time full server restart to register the dimension.
+              A <b>resettable arena</b> for the zone. The pack defines a <code>:zone</code> template (with the
+              exclusive biome); the Resource World mod mirrors it into a world that <b>auto-resets when empty</b>.
+              Tickets warp players in/out with <b>vanilla teleports</b> (no op level). One-time restart + <code>create_arena</code> to set up.
             </p>
             {config.arena.enabled && (
               <div className="space-y-3">
