@@ -13,7 +13,7 @@ import ObjectiveEditor from "@/app/components/ObjectiveEditor";
 import RewardList, { SharedDatalists } from "@/app/components/RewardList";
 import { randomEvent, DIFFICULTIES } from "@/lib/event/randomize";
 import type { Difficulty } from "@/lib/event/randomize";
-import type { EventConfig, Bucket, WeatherTheme, LegendaryTrigger } from "@/lib/event/types";
+import type { EventConfig, Bucket, WeatherTheme, LegendaryTrigger, RewardTier } from "@/lib/event/types";
 
 function PackToggle({
   label,
@@ -315,15 +315,18 @@ export default function ForgePage() {
               <button
                 className="btn-ghost px-2.5 py-1 text-xs"
                 onClick={() =>
-                  patch({ rewardTiers: [...config.rewardTiers, { id: `tier${config.rewardTiers.length + 1}`, name: "New tier", actions: [] }] })
+                  patch({ rewardTiers: [...config.rewardTiers, { id: `tier${config.rewardTiers.length + 1}`, name: "New tier", award: "completion-each", actions: [] }] })
                 }
               >
                 + Tier
               </button>
             </div>
             <p className="mb-4 text-xs text-slate-500">
-              Event-wide reward bundles you grant by hand (e.g. Participation / Winner). Each becomes a{" "}
-              <code className="text-slate-400">reward_&lt;tier&gt;</code> function.
+              Event-wide reward bundles. Pick when each is granted: <strong>Winner</strong> (everyone who finishes all
+              auto objectives), <strong>Champion</strong> (first to finish, server-wide), <strong>Participation</strong>{" "}
+              (took part but didn&apos;t finish — handed out at teardown), or <strong>Manual</strong> (you run the{" "}
+              <code className="text-slate-400">reward_&lt;tier&gt;</code> function yourself). Auto grants need at least one{" "}
+              <em>auto</em> objective to detect completion.
             </p>
             <div className="space-y-3">
               {config.rewardTiers.map((tier, ti) => (
@@ -338,6 +341,21 @@ export default function ForgePage() {
                         patch({ rewardTiers });
                       }}
                     />
+                    <select
+                      className="input w-44 text-xs"
+                      value={tier.award ?? "manual"}
+                      onChange={(e) => {
+                        const rewardTiers = [...config.rewardTiers];
+                        rewardTiers[ti] = { ...tier, award: e.target.value as RewardTier["award"] };
+                        patch({ rewardTiers });
+                      }}
+                      title="When this tier is granted"
+                    >
+                      <option value="completion-each">Winner — each finisher</option>
+                      <option value="completion-first">Champion — first finisher</option>
+                      <option value="participation">Participation — at teardown</option>
+                      <option value="manual">Manual — by hand</option>
+                    </select>
                     <button
                       className="btn-ghost px-2 py-1 text-xs"
                       onClick={() => patch({ rewardTiers: config.rewardTiers.filter((_, j) => j !== ti) })}

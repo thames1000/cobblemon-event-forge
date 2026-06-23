@@ -105,13 +105,14 @@ export function randomEvent(difficulty: Difficulty): EventConfig {
   // tiered rewards
   const winnerCount = difficulty === "chaos" ? 3 : 2;
   cfg.rewardTiers = [
-    { id: "participation", name: "Participation", actions: [{ kind: "item", itemId: "cobblemon:poke_ball", count: scaledCount(5, p.rewardMul) }] },
-    { id: "winner", name: "Winner", actions: Array.from({ length: winnerCount }, () => randomReward(theme, p.rewardMul)) },
+    { id: "participation", name: "Participation", award: "participation", actions: [{ kind: "item", itemId: "cobblemon:poke_ball", count: scaledCount(5, p.rewardMul) }] },
+    { id: "winner", name: "Winner", award: "completion-each", actions: Array.from({ length: winnerCount }, () => randomReward(theme, p.rewardMul)) },
   ];
   if (p.champion) {
     cfg.rewardTiers.push({
       id: "champion",
       name: "Champion",
+      award: "completion-first",
       actions: [
         { kind: "item", itemId: "obc:bottle_cap_gold", count: 1 },
         randomReward(theme, p.rewardMul),

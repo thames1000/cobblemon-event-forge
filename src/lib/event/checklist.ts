@@ -93,9 +93,27 @@ export function buildChecklist(opts: {
 
   const tiers = c.rewardTiers.filter((t) => t.actions.length);
   if (tiers.length) {
+    const autoObjectives = c.objectives.filter((o) => o.mode === "auto").length;
+    const fn = (t: (typeof tiers)[number]) => `${opts.namespace}:reward_${toId(t.id || t.name)}`;
     L.push("REWARD TIERS");
     for (const t of tiers) {
-      L.push(`  - ${t.name}: /execute as <player> run function ${opts.namespace}:reward_${toId(t.id || t.name)}`);
+      const award = t.award ?? "manual";
+      if (award === "completion-first") {
+        L.push(`  - ${t.name}: [auto] the FIRST player to complete all ${autoObjectives} auto objective(s) — granted automatically.`);
+      } else if (award === "completion-each") {
+        L.push(`  - ${t.name}: [auto] EVERY player who completes all ${autoObjectives} auto objective(s) — granted automatically.`);
+      } else if (award === "participation") {
+        L.push(`  - ${t.name}: [auto] granted at teardown to everyone ONLINE who took part but didn't complete (run uninstall before removing the pack).`);
+      } else {
+        L.push(`  - ${t.name}: [manual] /execute as <player> run function ${fn(t)}`);
+      }
+    }
+    const wantsAuto = tiers.some((t) => t.award && t.award !== "manual");
+    if (wantsAuto && autoObjectives === 0) {
+      L.push(`  - [!!] Auto tiers need at least one AUTO objective to detect completion — this event has none, so they will NEVER fire. Make a bounty 'auto', or grant the tiers by hand:`);
+      for (const t of tiers) L.push(`        /execute as <player> run function ${fn(t)}`);
+    } else if (wantsAuto) {
+      L.push(`  - "Complete the challenge" = finishing all ${autoObjectives} AUTO objective(s). Manual objectives don't count.`);
     }
     L.push(`  - Currency lines assume CobbleDollars — verify the command matches your economy mod.`);
     L.push("");

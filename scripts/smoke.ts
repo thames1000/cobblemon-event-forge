@@ -53,13 +53,23 @@ cfg.objectives = [
   newObjective("b2", { mode: "manual", label: "Win the costume contest", rewards: [{ kind: "command", command: "/give @s minecraft:diamond 5" }] }),
 ];
 cfg.rewardTiers = [
-  { id: "participation", name: "Participation", actions: [{ kind: "item", itemId: "cobblemon:poke_ball", count: 5 }] },
+  { id: "participation", name: "Participation", award: "participation", actions: [{ kind: "item", itemId: "cobblemon:poke_ball", count: 5 }] },
   {
     id: "winner",
     name: "Winner",
+    award: "completion-each",
     actions: [
       { kind: "item", itemId: "cobblemon:bottle_cap", count: 1 },
-      { kind: "command", command: "cobbledollars add @s 5000" },
+      { kind: "command", command: "cobbledollars give @s 5000" },
+    ],
+  },
+  {
+    id: "champion",
+    name: "Champion",
+    award: "completion-first",
+    actions: [
+      { kind: "spawn", species: "rayquaza", level: 70 },
+      { kind: "item", itemId: "obc:bottle_cap_gold", count: 1 },
     ],
   },
 ];
@@ -140,7 +150,38 @@ if (!bundle.files.some((f) => f.path.endsWith("/function/reward_participation.mc
 const winnerFn = bundle.files.find((f) => f.path.endsWith("/function/reward_winner.mcfunction"));
 if (!winnerFn) errors.push("tiers: missing winner fn");
 if (winnerFn && !winnerFn.contents.includes("give @s cobblemon:bottle_cap 1")) errors.push("tiers: winner item missing");
-if (winnerFn && !winnerFn.contents.includes("cobbledollars add @s 5000")) errors.push("tiers: winner currency command missing");
+if (winnerFn && !winnerFn.contents.includes("cobbledollars give @s 5000")) errors.push("tiers: winner currency command missing");
+
+// --- reward tiers auto-grant on completion (the reported bug) ---
+const ns = bundle.namespace;
+// a spawn placed in a TIER must be positioned at the player, same as a bounty spawn
+const champFn = bundle.files.find((f) => f.path.endsWith("/function/reward_champion.mcfunction"));
+if (!champFn) errors.push("tiers: missing champion fn");
+if (champFn && !/execute at @s run spawnpokemonat ~ ~ ~ rayquaza level=70/.test(champFn.contents))
+  errors.push("tiers: champion spawn reward not positioned at the player (would never spawn — the reported bug)");
+// check_complete fires the tiers once all auto objectives are done
+const checkC = bundle.files.find((f) => f.path.endsWith("/function/check_complete.mcfunction"));
+if (!checkC) errors.push("tiers: missing check_complete (tiers would never auto-fire)");
+if (checkC) {
+  if (!/execute unless score @s \w+_prog matches 1\.\. run return 0/.test(checkC.contents)) errors.push("tiers: check_complete missing the all-objectives guard");
+  if (!/execute if score @s \w+_won matches 1 run return 0/.test(checkC.contents)) errors.push("tiers: check_complete missing the once-per-player guard");
+  if (!/scoreboard players set @s \w+_won 1/.test(checkC.contents)) errors.push("tiers: check_complete doesn't mark the player done");
+  if (!checkC.contents.includes(`function ${ns}:reward_winner`)) errors.push("tiers: check_complete doesn't grant the Winner tier to each completer");
+  if (!/execute if score #\w+_champ cobble_events matches 1 run return 0/.test(checkC.contents)) errors.push("tiers: check_complete missing the first-only Champion guard");
+  if (!checkC.contents.includes(`function ${ns}:reward_champion`)) errors.push("tiers: check_complete doesn't grant the Champion tier");
+}
+// the auto objective bumps progress and runs the check
+const fnBounty1 = bundle.files.find((f) => f.path.endsWith("/function/bounty_1.mcfunction"));
+if (fnBounty1 && !/scoreboard players add @s \w+_prog 1/.test(fnBounty1.contents)) errors.push("tiers: auto objective doesn't count toward completion");
+if (fnBounty1 && !fnBounty1.contents.includes(`function ${ns}:check_complete`)) errors.push("tiers: auto objective doesn't trigger the completion check");
+// load sets up the completion scoreboards + champion guard; uninstall grants participation then cleans up
+const loadC = bundle.files.find((f) => f.path.endsWith("/function/load.mcfunction"));
+if (loadC && !/scoreboard objectives add \w+_prog dummy/.test(loadC.contents)) errors.push("tiers: load doesn't create the progress objective");
+if (loadC && !/scoreboard players set #\w+_champ cobble_events 0/.test(loadC.contents)) errors.push("tiers: load doesn't arm the champion guard");
+const uninstallC = bundle.files.find((f) => f.path.endsWith("/function/uninstall.mcfunction"));
+if (uninstallC && !new RegExp(`execute as @a\\[scores=\\{\\w+_prog=1\\.\\.\\}\\] unless score @s \\w+_won matches 1 run function ${ns}:reward_participation`).test(uninstallC.contents))
+  errors.push("tiers: uninstall doesn't grant Participation to non-completers");
+if (uninstallC && !/scoreboard objectives remove \w+_prog/.test(uninstallC.contents)) errors.push("tiers: uninstall doesn't clean up the progress objective");
 
 // --- objectives: auto compiles to advancement + reward fn; manual = fn only ---
 const advB1 = bundle.files.find((f) => f.path.endsWith("/advancement/bounty_1.json"));

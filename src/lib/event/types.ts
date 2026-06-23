@@ -22,15 +22,31 @@ export interface FeaturedMon {
 }
 
 /**
+ * When a reward tier is granted:
+ *  - "completion-first": the FIRST player server-wide to finish every auto
+ *    objective (a "Champion"). Guarded so exactly one player gets it.
+ *  - "completion-each":  EVERY player who finishes every auto objective (a
+ *    "Winner").
+ *  - "participation":    players who took part but did NOT finish — granted at
+ *    teardown (the uninstall function), to everyone online who made any progress.
+ *  - "manual":           not auto-granted; the owner runs the function by hand
+ *    (the original behaviour, and the default for back-compat).
+ */
+export type TierAward = "completion-first" | "completion-each" | "participation" | "manual";
+
+/**
  * A reward tier — a named bundle of reward actions (e.g. Participation, Winner,
- * Bronze → Champion). Each tier compiles to its own reward function the owner
- * runs against the appropriate players.
+ * Bronze → Champion). Each tier compiles to its own reward function; the `award`
+ * mode controls whether the datapack fires it automatically (see TierAward) or
+ * leaves it for the owner to run by hand.
  */
 export interface RewardTier {
   /** Stable id used for the function name. */
   id: string;
   name: string;
   actions: RewardAction[];
+  /** When this tier is granted. Defaults to "manual" when absent. */
+  award?: TierAward;
 }
 
 /**

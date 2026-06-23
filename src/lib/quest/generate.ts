@@ -26,7 +26,8 @@ function criteriaFor(task: QuestTask): { trigger: string; conditions: Record<str
       return { trigger: task.triggerId, conditions: findTrigger(task.triggerId)?.conditions(o) ?? { count: task.count } };
     }
     case "item":
-      return { trigger: "minecraft:inventory_changed", conditions: { items: [{ items: withNs(task.itemId), count: { min: Math.max(1, Math.round(task.itemCount)) } }] } };
+      // The item predicate's `items` field is a HolderSet — use a list, not a bare string.
+      return { trigger: "minecraft:inventory_changed", conditions: { items: [{ items: [withNs(task.itemId)], count: { min: Math.max(1, Math.round(task.itemCount)) } }] } };
     case "location":
       return { trigger: "minecraft:changed_dimension", conditions: { to: task.dimension } };
     case "manual":

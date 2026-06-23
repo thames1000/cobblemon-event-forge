@@ -2,6 +2,7 @@ import type { GeneratedFile } from "../datapack/types";
 import type { Objective } from "./types";
 import { findTrigger, describeObjective } from "./triggers";
 import { compileRewardLines } from "../reward/actions";
+import { progObjective } from "../event/lifecycle";
 
 /**
  * Compile objectives into datapack files.
@@ -20,6 +21,8 @@ export function buildObjectiveFiles(opts: {
   namespace: string;
   objectives: Objective[];
   packFormat: number;
+  /** When set, auto objectives count toward event completion (reward tiers). */
+  completion?: { slug: string };
 }): GeneratedFile[] {
   const files: GeneratedFile[] = [];
 
@@ -28,7 +31,9 @@ export function buildObjectiveFiles(opts: {
     const fnId = `bounty_${n}`;
     const label = describeObjective(o);
     const rewardLines = compileRewardLines(o.rewards, { packFormat: opts.packFormat });
-    const hasFunction = rewardLines.length > 0 || o.announce;
+    // auto objectives need a function even with no reward, so completion can count them.
+    const tracksCompletion = !!opts.completion && o.mode === "auto";
+    const hasFunction = rewardLines.length > 0 || o.announce || tracksCompletion;
 
     if (hasFunction) {
       const L: string[] = [`# Bounty ${n}: ${label}`];
@@ -39,6 +44,11 @@ export function buildObjectiveFiles(opts: {
       }
       L.push(...rewardLines);
       L.push(`tellraw @s ${JSON.stringify({ text: `Bounty complete — ${label}`, color: "gold" })}`);
+      if (tracksCompletion) {
+        L.push(`# count toward event completion → reward tiers`);
+        L.push(`scoreboard players add @s ${progObjective(opts.completion!.slug)} 1`);
+        L.push(`function ${opts.namespace}:check_complete`);
+      }
       files.push({
         path: `data/${opts.namespace}/function/${fnId}.mcfunction`,
         contents: L.join("\n") + "\n",

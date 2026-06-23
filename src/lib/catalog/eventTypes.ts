@@ -3,11 +3,12 @@ import { findSpecies } from "./pokemon";
 import type { PokeType } from "./pokemon";
 import { newObjective } from "../objective/types";
 import type { RewardAction } from "../reward/actions";
-import type { EventConfig, LegendaryTrigger, WeatherTheme } from "../event/types";
+import type { EventConfig, LegendaryTrigger, RewardTier, WeatherTheme } from "../event/types";
 
 /** Map a preset reward [id,count] to a RewardAction (CobbleDollars → command). */
 function rewardActionFor(itemId: string, count: number): RewardAction {
-  if (itemId === "cobbledollars") return { kind: "command", command: `cobbledollars add @s ${count}` };
+  // CobbleDollars subcommands are give/pay/set/remove/query (NOT "add") — verified vs the mod.
+  if (itemId === "cobbledollars") return { kind: "command", command: `cobbledollars give @s ${count}` };
   return { kind: "item", itemId, count };
 }
 
@@ -178,6 +179,15 @@ function defaultTrigger(presetId: string, featured: EventConfig["featured"]): Le
 /** Build a fresh EventConfig from a preset id. */
 export function configFromPreset(presetId: string): EventConfig {
   const p = findPreset(presetId) ?? EVENT_PRESETS[0];
+  // Tiers: Participation (took part, granted at teardown), Winner (each player who
+  // finishes every auto objective), and — for real presets — a first-only Champion.
+  const rewardTiers: RewardTier[] = [
+    { id: "participation", name: "Participation", award: "participation", actions: [{ kind: "item", itemId: "cobblemon:poke_ball", count: 5 }] },
+    { id: "winner", name: "Winner", award: "completion-each", actions: p.rewards.map(([itemId, count]) => rewardActionFor(itemId, count)) },
+  ];
+  if (p.id !== "blank") {
+    rewardTiers.push({ id: "champion", name: "Champion", award: "completion-first", actions: [{ kind: "item", itemId: "obc:bottle_cap_gold", count: 1 }] });
+  }
   const featured = p.featured.map((species, i) => {
     // headliner #1 stays rarer if it's clearly a legendary slot
     const bucket = i === 0 && p.id === "legendary-hunt" ? "ultra-rare" : i === 0 ? "uncommon" : "rare";
@@ -192,10 +202,7 @@ export function configFromPreset(presetId: string): EventConfig {
     weather: p.weather,
     featured,
     objectives: p.objectives.map((text, i) => newObjective(`b${i + 1}`, { label: text })),
-    rewardTiers: [
-      { id: "participation", name: "Participation", actions: [{ kind: "item", itemId: "cobblemon:poke_ball", count: 5 }] },
-      { id: "winner", name: "Winner", actions: p.rewards.map(([itemId, count]) => rewardActionFor(itemId, count)) },
-    ],
+    rewardTiers,
     legendaryTrigger: defaultTrigger(p.id, featured),
     pack: {
       includeLoad: true,

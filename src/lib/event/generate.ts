@@ -1,13 +1,15 @@
 import type { Bundle, GeneratedFile } from "../datapack/types";
 import type { ValidationResult } from "../datapack/validate";
-import type { EventConfig } from "./types";
+import type { EventConfig, RewardTier } from "./types";
 import { toId, toNamespace } from "../datapack/sanitize";
 import { buildPackMeta } from "../datapack/packMeta";
 import { buildSpawnFiles } from "../datapack/spawns";
-import { buildTierFiles } from "./tiers";
+import { buildTierFiles, tierFnId, tierHasFunction } from "./tiers";
 import { buildLegendaryFiles } from "./legendary";
 import { buildObjectiveFiles } from "../objective/generate";
-import { buildLifecycleFiles } from "./lifecycle";
+import { buildLifecycleFiles, tracksProgress } from "./lifecycle";
+import type { CompletionWiring } from "./lifecycle";
+import { buildCompletionFiles } from "./completion";
 import { validateDatapack } from "../datapack/validate";
 import { buildBountiesFile } from "./bounties";
 import { buildDiscordAnnouncement } from "./discord";
@@ -30,6 +32,18 @@ export interface GenerateResult {
 export function generateEvent(config: EventConfig): GenerateResult {
   const slug = toId(config.title || "untitled_event");
   const namespace = toNamespace(config.title || "owner_event");
+
+  // --- reward-tier auto-grant wiring ---
+  // Categorize each tier (that actually compiles to a function) by its award mode.
+  const award = (a: RewardTier["award"]) =>
+    config.rewardTiers.filter((t) => (t.award ?? "manual") === a && tierHasFunction(t, config.packFormat)).map(tierFnId);
+  const completion: CompletionWiring = {
+    total: config.objectives.filter((o) => o.mode === "auto").length,
+    winnerFns: award("completion-each"),
+    championFns: award("completion-first"),
+    participationFns: award("participation"),
+  };
+  const autoTiers = tracksProgress(completion);
 
   // --- datapack files ---
   const datapackFiles: GeneratedFile[] = [];
@@ -67,8 +81,12 @@ export function generateEvent(config: EventConfig): GenerateResult {
       namespace,
       objectives: config.objectives,
       packFormat: config.packFormat,
+      completion: autoTiers ? { slug } : undefined,
     }),
   );
+  if (autoTiers) {
+    datapackFiles.push(...buildCompletionFiles({ namespace, slug, title: config.title, completion }));
+  }
   // lifecycle (load / uninstall / tick + tags) — centralized so there's one
   // load.json and tick.json only ever appears when explicitly enabled.
   const serverWideLegendary =
@@ -82,6 +100,7 @@ export function generateEvent(config: EventConfig): GenerateResult {
       title: config.title,
       options: config.pack,
       serverWideLegendary,
+      completion: autoTiers ? completion : undefined,
     }),
   );
 

@@ -36,17 +36,19 @@ export const TRIGGERS: TriggerDef[] = [
     label: "Catch Pokémon",
     usesCount: true,
     usesType: true,
-    usesSpecies: true,
+    // Cobblemon's catch_pokemon criterion (CaughtPokemonCriterion) supports ONLY `type`
+    // + `count` — its `species` field is commented out in the mod, so emitting `species`
+    // would be ignored (or fail to load). Don't offer it; use "Evolve Pokémon" or a
+    // manual objective for species-specific goals.
+    usesSpecies: false,
     usesLevel: false,
     conditions: (o) => ({
       count: o.count,
       ...(o.pokemonType !== "any" ? { type: o.pokemonType } : {}),
-      ...speciesCond(o.species),
     }),
     describe: (o) => {
       const typeStr = o.pokemonType !== "any" ? `${o.pokemonType}-type ` : "";
-      const what = o.species.trim() ? speciesName(o.species) : `${typeStr}Pokémon`;
-      return `Catch ${o.count} ${what}`;
+      return `Catch ${o.count} ${typeStr}Pokémon`;
     },
   },
   {

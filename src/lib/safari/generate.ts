@@ -137,11 +137,10 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
   if (config.arena.enabled) {
     const singleBiome = config.arena.mode === "single-biome";
     const biome = config.arena.biome.trim() || "minecraft:plains";
-    // :zone is the TEMPLATE that the Resource World mod mirrors (so it carries the
-    // exclusive biome). Players actually enter the resource-world dimension (rwDim,
-    // defined above), which the mod can REGENERATE live — vanilla can't reset a
-    // dimension without a restart.
-    const arenaDim = `${ns}:zone`;
+    // :zone (data/<ns>/dimension/zone.json) is the TEMPLATE that the Resource World
+    // mod mirrors (so it carries the exclusive biome). Players actually enter the
+    // resource-world dimension (rwDim, defined above), which the mod can REGENERATE
+    // live — vanilla can't reset a dimension without a restart.
     // Exclusive mode fills the whole arena with our custom biome (so only the safari's
     // Pokémon spawn). Otherwise: single-biome → the chosen vanilla biome; mirror → a
     // normal multi-biome overworld.

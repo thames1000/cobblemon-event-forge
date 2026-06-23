@@ -3,6 +3,16 @@ import type { RewardTier } from "./types";
 import { compileRewardLines, describeReward } from "../reward/actions";
 import { toId } from "../datapack/sanitize";
 
+/** The bare function id (no namespace) a tier compiles to, e.g. "reward_winner". */
+export function tierFnId(tier: RewardTier): string {
+  return `reward_${toId(tier.id || tier.name)}`;
+}
+
+/** Does this tier actually compile to anything (and thus get a function emitted)? */
+export function tierHasFunction(tier: RewardTier, packFormat: number): boolean {
+  return compileRewardLines(tier.actions, { packFormat }).length > 0;
+}
+
 /**
  * Reward-tier functions. Each tier becomes one function the owner runs against
  * the relevant players:
@@ -18,20 +28,20 @@ export function buildTierFiles(opts: {
   for (const tier of opts.tiers) {
     const lines = compileRewardLines(tier.actions, { packFormat: opts.packFormat });
     if (lines.length === 0) continue;
-    const tid = toId(tier.id || tier.name);
+    const fn = tierFnId(tier);
     const L = [
       `# ${tier.name} reward tier`,
-      `# /execute as <player> run function ${opts.namespace}:reward_${tid}`,
+      `# /execute as <player> run function ${opts.namespace}:${fn}`,
       "",
       ...lines,
       `tellraw @s ${JSON.stringify({ text: `You received the ${tier.name} reward!`, color: "gold" })}`,
       "",
     ];
     files.push({
-      path: `data/${opts.namespace}/function/reward_${tid}.mcfunction`,
+      path: `data/${opts.namespace}/function/${fn}.mcfunction`,
       contents: L.join("\n"),
       kind: "function",
-      label: `reward_${tid}.mcfunction`,
+      label: `${fn}.mcfunction`,
     });
   }
   return files;

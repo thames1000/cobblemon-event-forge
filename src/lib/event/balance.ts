@@ -23,7 +23,7 @@ export function rewardValue(config: EventConfig): number {
   for (const a of allActions(config)) {
     if (a.kind === "item") total += (findReward(a.itemId)?.value ?? 0) * Math.max(1, a.count);
     else if (a.kind === "command") {
-      const m = a.command.match(/cobbledollars\s+add\s+\S+\s+(\d+)/i);
+      const m = a.command.match(/cobbledollars\s+(?:give|add)\s+\S+\s+(\d+)/i);
       if (m) total += Number(m[1]);
     }
   }
