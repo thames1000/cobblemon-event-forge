@@ -71,7 +71,7 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
   // the leave item so it can never be carried out of the zone and misused.
   const teardownLines = [
     ...(showBar ? [`function ${ns}:bar_remove_${slug}`] : []),
-    ...(config.arena.enabled ? [`function ${ns}:return_${slug}`] : []),
+    ...(config.arena.enabled ? [`tag @s remove ${slug}_inzone`, `function ${ns}:return_${slug}`] : []),
     ...(config.timer.enabled ? [`scoreboard players reset @s ${TIMER_OBJ}`] : []),
     ...(leaveOn ? [`clear @s ${leaveItem}[minecraft:custom_data={${SAFARI_DATA_KEY}:"${leaveValue}"}]`] : []),
   ];
@@ -104,7 +104,11 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
   if (config.arena.enabled) {
     const singleBiome = config.arena.mode === "single-biome";
     const biome = config.arena.biome.trim() || "minecraft:plains";
+    // :zone is the TEMPLATE that the Resource World mod mirrors (so it carries the
+    // exclusive biome). Players actually enter the resource-world dimension, which the
+    // mod can REGENERATE live — vanilla can't reset a dimension without a restart.
     const arenaDim = `${ns}:zone`;
+    const rwDim = `resource_world:${slug}`;
     // Exclusive mode fills the whole arena with our custom biome (so only the safari's
     // Pokémon spawn). Otherwise: single-biome → the chosen vanilla biome; mirror → a
     // normal multi-biome overworld.
@@ -171,6 +175,10 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
       `scoreboard players reset @a ${RET_X}`,
       `scoreboard players reset @a ${RET_Y}`,
       `scoreboard players reset @a ${RET_Z}`,
+      `tag @a remove ${slug}_inzone`,
+      `# delete the resource world (run twice — delete needs confirmation)`,
+      `resourceworld delete ${slug}`,
+      `resourceworld delete ${slug}`,
     );
     // Warp IN: drop ONLY this player (@s) on a safe surface within 200 blocks of
     // (0,0) in the arena dimension. Pure vanilla, so it runs from the ticket's
@@ -178,8 +186,12 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
     datapackFiles.push({
       path: `data/${ns}/function/warp_${slug}.mcfunction`,
       contents: [
-        `# Teleport one player (@s) into the arena dimension.`,
-        `execute in ${arenaDim} run spreadplayers 0 0 1 200 false @s`,
+        `# Warp one player (@s) into the resource-world arena and tag them as "inside".`,
+        `# Vanilla tp, so it runs from the ticket reward with no mod command / op level.`,
+        `tag @s add ${slug}_inzone`,
+        `execute in ${rwDim} run spreadplayers 0 0 1 200 false @s`,
+        `# watch the zone so it auto-resets once the last player leaves`,
+        `schedule function ${ns}:reset_watch_${slug} 1s replace`,
         "",
       ].join("\n"),
       kind: "function",
@@ -210,6 +222,48 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
       ].join("\n"),
       kind: "function",
       label: "do_return.mcfunction",
+    });
+    // One-time setup: create the RESETTABLE resource world, mirroring :zone so it
+    // carries the exclusive biome. Run once, after a full restart (so :zone exists).
+    datapackFiles.push({
+      path: `data/${ns}/function/create_arena.mcfunction`,
+      contents: [
+        `# Run ONCE during setup (after a full server restart so ${ns}:zone is registered):`,
+        `#   /function ${ns}:create_arena`,
+        `resourceworld create ${slug} mirror ${ns}:zone`,
+        `say 🌍 ${config.title} arena created (mirrors ${ns}:zone). Players enter with a ticket.`,
+        "",
+      ].join("\n"),
+      kind: "function",
+      label: "create_arena.mcfunction",
+    });
+    // Auto-reset watcher: kicked off on entry, reschedules itself every second while
+    // anyone is still tagged "inside", and the first tick the zone is empty it wipes
+    // the world ONCE (then stops, since it doesn't reschedule).
+    datapackFiles.push({
+      path: `data/${ns}/function/reset_watch_${slug}.mcfunction`,
+      contents: [
+        `# Still occupied → keep watching.`,
+        `execute if entity @a[tag=${slug}_inzone] run schedule function ${ns}:reset_watch_${slug} 1s replace`,
+        `# Just emptied → reset the world for the next visitor (loop ends here).`,
+        `execute unless entity @a[tag=${slug}_inzone] run function ${ns}:reset_zone_${slug}`,
+        "",
+      ].join("\n"),
+      kind: "function",
+      label: "reset_watch.mcfunction",
+    });
+    datapackFiles.push({
+      path: `data/${ns}/function/reset_zone_${slug}.mcfunction`,
+      contents: [
+        `# Regenerate the whole arena LIVE — no restart. Same dimension id, so the vanilla`,
+        `# warp keeps working afterward. If your mod's reset needs confirming, duplicate`,
+        `# the resourceworld line.`,
+        `resourceworld reset ${slug}`,
+        `say ♻ ${config.title} arena reset — fresh for the next visitor.`,
+        "",
+      ].join("\n"),
+      kind: "function",
+      label: "reset_zone.mcfunction",
     });
   }
 
