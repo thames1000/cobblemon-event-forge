@@ -10,6 +10,7 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { href: "/", label: "Home", emoji: "🏠", blurb: "Console overview", ready: true },
   { href: "/forge", label: "Event Forge", emoji: "🔥", blurb: "Build weekly events, spawns & rewards", ready: true },
+  { href: "/calendar", label: "Event Calendar", emoji: "📅", blurb: "Plan the rotation, schedule & teardown", ready: true },
   { href: "/bounties", label: "Bounty Board", emoji: "📋", blurb: "Daily, weekly & community contracts", ready: true },
   { href: "/crates", label: "Reward Crates", emoji: "🎁", blurb: "Loot tables without hand-writing JSON", ready: true },
   { href: "/bingo", label: "Bingo Boards", emoji: "🎲", blurb: "Randomized objective bingo with line rewards", ready: true },

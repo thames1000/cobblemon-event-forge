@@ -763,6 +763,75 @@ if (qNoFtb.bundle.files.some((f) => f.path.endsWith(".snbt") || /\/advancement\/
 console.log("\n=== quest: FTB chapter ===");
 console.log(snbt?.contents);
 
+// === Event Calendar / Rotation Planner ===
+import { generateCalendar, shiftISO, bucketOf } from "../src/lib/calendar/generate";
+import { newCalendar, newEntry } from "../src/lib/calendar/types";
+
+const calToday = "2026-06-23"; // pinned so date-relative text is deterministic
+const cal = newCalendar({
+  serverName: "Cobbleverse",
+  discordChannel: "#events",
+  entries: [
+    newEntry("e1", { name: "Haunted Safari", emoji: "🎃", start: "2026-06-22", end: "2026-06-24", status: "active", blurb: "Ghosts swarm the woods.", announceLead: 3 }),
+    newEntry("e2", { name: "Fossil Frenzy", emoji: "🦴", start: "2026-06-28", end: "2026-06-30", blurb: "Revive a fossil for a prize.", announceLead: 3 }),
+    newEntry("e3", { name: "Fishing Derby", emoji: "🎣", start: "2026-06-13", end: "2026-06-15", status: "done" }),
+  ],
+});
+const calRes = generateCalendar(cal, calToday);
+// date math + classification
+if (shiftISO("2026-06-28", -3) !== "2026-06-25") errors.push("calendar: shiftISO day math wrong");
+if (shiftISO("2026-07-01", -1) !== "2026-06-30") errors.push("calendar: shiftISO month boundary wrong");
+if (bucketOf(cal.entries[0], calToday) !== "live") errors.push("calendar: live event not classified live");
+if (bucketOf(cal.entries[1], calToday) !== "upcoming") errors.push("calendar: upcoming event misclassified");
+if (bucketOf(cal.entries[2], calToday) !== "past") errors.push("calendar: past event misclassified");
+// summary
+if (calRes.summary.live.length !== 1 || calRes.summary.live[0].name !== "Haunted Safari") errors.push("calendar: summary.live wrong");
+if (calRes.summary.next?.name !== "Fossil Frenzy") errors.push("calendar: summary.next should be the soonest upcoming");
+if (calRes.summary.counts.upcoming !== 1 || calRes.summary.counts.past !== 1 || calRes.summary.counts.live !== 1) errors.push("calendar: summary counts wrong");
+if (calRes.warnings.length !== 0) errors.push(`calendar: a clean schedule produced warnings: ${calRes.warnings.map((w) => w.message).join("; ")}`);
+// files
+const schedule = calRes.files.find((f) => f.path === "schedule.txt");
+const discord = calRes.files.find((f) => f.path === "discord_schedule.md");
+const teardown = calRes.files.find((f) => f.path === "teardown_checklist.txt");
+if (!schedule || !discord || !teardown) errors.push("calendar: missing one of schedule/discord/teardown");
+if (schedule) {
+  for (const s of ["LIVE NOW", "Haunted Safari", "ends tomorrow", "UPCOMING", "Fossil Frenzy", "starts in 5 days", "announce Jun 25", "PAST", "ended 8 days ago"]) {
+    if (!schedule.contents.includes(s)) errors.push(`calendar: schedule missing "${s}"`);
+  }
+}
+if (discord) {
+  for (const s of ["Live now", "Haunted Safari", "Next up", "Fossil Frenzy", "Announcement plan (post in #events)", "announce **Fossil Frenzy**", "Jun 25"]) {
+    if (!discord.contents.includes(s)) errors.push(`calendar: discord missing "${s}"`);
+  }
+}
+if (teardown) {
+  if (!teardown.contents.includes("Fishing Derby")) errors.push("calendar: teardown should list the ended event");
+  if (!teardown.contents.includes("/function fishing_derby:uninstall")) errors.push("calendar: teardown missing the uninstall hint");
+  if (teardown.contents.includes("Fossil Frenzy")) errors.push("calendar: teardown should NOT list a future event");
+}
+// warnings: bad dates, overlap, missing dates
+const calWarn = generateCalendar(
+  newCalendar({
+    entries: [
+      newEntry("e1", { name: "Bad Dates", start: "2026-07-10", end: "2026-07-05" }),
+      newEntry("e2", { name: "Overlap A", start: "2026-07-01", end: "2026-07-05" }),
+      newEntry("e3", { name: "Overlap B", start: "2026-07-04", end: "2026-07-08" }),
+      newEntry("e4", { name: "No Dates" }),
+    ],
+  }),
+  calToday,
+);
+if (!calWarn.warnings.some((w) => w.level === "error" && /before the start/.test(w.message))) errors.push("calendar: missing end-before-start error");
+if (!calWarn.warnings.some((w) => w.level === "warn" && /overlap/.test(w.message))) errors.push("calendar: missing overlap warning");
+if (!calWarn.warnings.some((w) => w.level === "info" && /no start\/end date/.test(w.message))) errors.push("calendar: missing missing-dates info");
+// empty calendar still renders without throwing
+const calEmpty = generateCalendar(newCalendar(), calToday);
+if (!calEmpty.files.find((f) => f.path === "schedule.txt")?.contents.includes("no events yet")) errors.push("calendar: empty schedule should note there are no events");
+console.log("\n=== calendar: schedule.txt ===");
+console.log(schedule?.contents);
+console.log("=== calendar: discord_schedule.md ===");
+console.log(discord?.contents);
+
 if (errors.length) {
   console.error("\nSMOKE FAILED:\n" + errors.map((e) => " - " + e).join("\n"));
   process.exit(1);
