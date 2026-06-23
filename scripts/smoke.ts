@@ -14,6 +14,9 @@ import type { BountyConfig } from "../src/lib/bounty/types";
 import { generateItems, giveCommand } from "../src/lib/item/generate";
 import { newItem, NO_FORMAT } from "../src/lib/item/types";
 import type { ItemConfig } from "../src/lib/item/types";
+import { generateQuestline } from "../src/lib/quest/generate";
+import { newQuest, newTask } from "../src/lib/quest/types";
+import type { QuestConfig } from "../src/lib/quest/types";
 
 // catalog: the full National Dex (#1–1025) with Cobblemon-style ids + legendary flags
 const errors: string[] = [];
@@ -672,6 +675,52 @@ if (giveFns.length !== 3 || new Set(giveFns.map((f) => f.path)).size !== 3) erro
 if (!items.bundle.files.some((f) => f.path === "give_commands.txt")) errors.push("item: missing give_commands.txt sidecar");
 console.log("\n=== item: give command ===");
 console.log("/" + cmd1);
+
+// === Questlines (vanilla advancement tree + FTB Quests chapter) ===
+const qcfg: QuestConfig = {
+  title: "Pro Research", icon: "cobblemon:poke_ball", packFormat: 48, exportAdvancements: true, exportFtb: true,
+  quests: [
+    newQuest("q1", { title: "First Catch", description: ["Catch one."], task: newTask({ kind: "objective", triggerId: "cobblemon:catch_pokemon", count: 1 }), rewards: [{ kind: "item", itemId: "cobblemon:poke_ball", count: 5 }], x: 0, y: 0 }),
+    newQuest("q2", { title: "Electric Spec", task: newTask({ kind: "objective", count: 10, pokemonType: "electric" }), dependencies: ["q1"], rewards: [{ kind: "spawn", species: "pikachu", level: 25 }], x: 3, y: 0 }),
+    newQuest("q3", { title: "Bring a Stone", task: newTask({ kind: "item", itemId: "cobblemon:thunder_stone", itemCount: 1 }), dependencies: ["q1"], rewards: [], x: 3, y: 2 }),
+  ],
+};
+const ql = generateQuestline(qcfg);
+const qf = (s: string) => ql.bundle.files.find((f) => f.path.endsWith(s));
+if (!ql.validation.ok) errors.push("quest: invalid datapack");
+if (ql.questCount !== 3) errors.push(`quest: expected 3 quests, got ${ql.questCount}`);
+// vanilla advancement tree: root + per-quest advancement (display+parent+criteria+reward fn)
+if (!qf("/advancement/root.json")) errors.push("quest: missing root advancement");
+const qa2 = qf("/advancement/q_q2.json");
+if (qa2) {
+  const d = JSON.parse(qa2.contents);
+  if (d.parent !== "pro_research:q_q1") errors.push("quest: q2 parent (branch) wrong");
+  if (d.criteria?.done?.trigger !== "cobblemon:catch_pokemon" || d.criteria?.done?.conditions?.type !== "electric") errors.push("quest: q2 criteria wrong");
+  if (d.rewards?.function !== "pro_research:q_q2_reward") errors.push("quest: q2 reward fn not wired");
+} else errors.push("quest: missing q_q2 advancement");
+const qa3 = qf("/advancement/q_q3.json");
+if (qa3 && JSON.parse(qa3.contents).criteria?.done?.trigger !== "minecraft:inventory_changed") errors.push("quest: item-task criterion should be inventory_changed");
+const qr = qf("/function/q_q2_reward.mcfunction");
+if (!qr || !/execute at @s run spawnpokemonat ~ ~ ~ pikachu level=25/.test(qr.contents)) errors.push("quest: reward fn missing positioned spawn");
+// FTB chapter: a config/ftbquests .snbt with branching deps + advancement/item tasks + rewards
+const snbt = ql.bundle.files.find((f) => f.path === "config/ftbquests/quests/chapters/pro_research.snbt");
+if (!snbt) errors.push("quest: missing FTB chapter .snbt at config/ftbquests path");
+else {
+  const c = snbt.contents;
+  if (!/filename: "pro_research"/.test(c) || !/quests: \[/.test(c)) errors.push("quest: FTB chapter header malformed");
+  if (!/type: "advancement"/.test(c) || !/advancement: "pro_research:fq_q1"/.test(c)) errors.push("quest: FTB objective task should bridge via advancement");
+  if (!/item: "cobblemon:thunder_stone" type: "item"/.test(c)) errors.push("quest: FTB item task malformed");
+  if (!/type: "command"/.test(c) || !/spawnpokemonat ~ ~ ~ pikachu/.test(c)) errors.push("quest: FTB spawn reward should be a command reward");
+  if (!/dependencies: \["[0-9A-F]{16}"\]/.test(c)) errors.push("quest: FTB branching dependencies missing/!hex");
+}
+// FTB bridge advancements (silent) for objective tasks only
+if (!qf("/advancement/fq_q1.json") || !qf("/advancement/fq_q2.json")) errors.push("quest: missing FTB bridge advancements");
+if (qf("/advancement/fq_q3.json")) errors.push("quest: item task should not get an FTB bridge advancement");
+// opt-out: FTB off → no .snbt / fq_ advancements
+const qNoFtb = generateQuestline({ ...qcfg, exportFtb: false });
+if (qNoFtb.bundle.files.some((f) => f.path.endsWith(".snbt") || /\/advancement\/fq_/.test(f.path))) errors.push("quest: FTB files present when exportFtb off");
+console.log("\n=== quest: FTB chapter ===");
+console.log(snbt?.contents);
 
 if (errors.length) {
   console.error("\nSMOKE FAILED:\n" + errors.map((e) => " - " + e).join("\n"));

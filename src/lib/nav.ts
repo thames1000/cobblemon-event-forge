@@ -16,7 +16,7 @@ export const NAV: NavItem[] = [
   { href: "/safari", label: "Safari Zones", emoji: "🏕️", blurb: "Themed temporary spawn areas", ready: true },
   { href: "/battle", label: "Battle Factory", emoji: "⚔️", blurb: "Rental drafts + NPC battle tower", ready: true },
   { href: "/items", label: "Item Designer", emoji: "🏷️", blurb: "Named/lore items & /give commands", ready: true },
-  { href: "/quests", label: "Questlines", emoji: "🗺️", blurb: "Mini-RPG arcs (FTB Quests export)", ready: false },
+  { href: "/quests", label: "Questlines", emoji: "🗺️", blurb: "Advancement tree + FTB Quests export", ready: true },
 ];
 
 export function navItem(href: string): NavItem | undefined {
