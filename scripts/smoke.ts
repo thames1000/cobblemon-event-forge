@@ -973,6 +973,69 @@ if (lbOff.bundle.files.find((f) => f.path.endsWith("/function/load.mcfunction"))
 console.log("\n=== leaderboard: score/show + auto_catch ===");
 console.log(lShow?.contents + "\n---\n" + lAuto?.contents);
 
+// === Escalation Stages ===
+import { newEscalationConfig } from "../src/lib/escalation/types";
+import { generateEscalation } from "../src/lib/escalation/generate";
+
+const esc = generateEscalation(newEscalationConfig(48)); // "The Haunting", 4 stages, progress bar on
+const ef = (s: string) => esc.bundle.files.find((f) => f.path.endsWith(s));
+const eNs = esc.bundle.namespace; // the_haunting
+if (!esc.validation.ok) errors.push("escalation: invalid datapack");
+for (const f of esc.bundle.files) {
+  if (f.path.endsWith(".json")) { try { JSON.parse(f.contents); } catch { errors.push(`escalation: bad json ${f.path}`); } }
+}
+// load only starts once (init guard); start begins at stage 1
+const eLoad = ef("/function/load.mcfunction");
+if (!eLoad || !new RegExp(`execute unless score #init esc matches 1 run function ${eNs}:start`).test(eLoad.contents)) errors.push("escalation: load missing the run-once start guard");
+const eStart = ef("/function/start.mcfunction");
+if (!eStart || !/scoreboard players set #init esc 1/.test(eStart.contents) || !new RegExp(`function ${eNs}:enter_1`).test(eStart.contents)) errors.push("escalation: start doesn't init + enter stage 1");
+if (eStart && !new RegExp(`bossbar add ${eNs}:progress`).test(eStart.contents)) errors.push("escalation: start doesn't create the boss bar");
+// enter_k sets stage/prog + configures the bar; terminal hides it
+const eEnter2 = ef("/function/enter_2.mcfunction");
+if (!eEnter2 || !/scoreboard players set #stage esc 2/.test(eEnter2.contents) || !/scoreboard players set #prog esc 0/.test(eEnter2.contents)) errors.push("escalation: enter_2 doesn't set stage/reset progress");
+if (eEnter2 && !new RegExp(`bossbar set ${eNs}:progress max 20`).test(eEnter2.contents)) errors.push("escalation: enter_2 doesn't set the bar max to the stage goal");
+if (eEnter2 && !new RegExp(`execute as @a at @s run function ${eNs}:grant_2`).test(eEnter2.contents)) errors.push("escalation: enter_2 doesn't apply effects to everyone online");
+const eEnter4 = ef("/function/enter_4.mcfunction"); // terminal
+if (!eEnter4 || !new RegExp(`bossbar set ${eNs}:progress visible false`).test(eEnter4.contents)) errors.push("escalation: terminal stage should hide the bar");
+if (eEnter4 && !/title @a title /.test(eEnter4.contents)) errors.push("escalation: terminal stage big-title announce missing");
+const eGrant4 = ef("/function/grant_4.mcfunction");
+if (!eGrant4 || !/execute at @s run spawnpokemonat ~ ~ ~ gengar level=70/.test(eGrant4.contents) || !/give @s cobblemon:rare_candy 10/.test(eGrant4.contents)) errors.push("escalation: grant_4 missing positioned boss spawn / reward");
+// contribution: count-less advancement, only tallies while active, advances at goal, updates the bar
+const eAdv = ef("/advancement/contrib_1.json");
+if (eAdv) {
+  const d = JSON.parse(eAdv.contents);
+  if (d.criteria?.did?.trigger !== "cobblemon:catch_pokemon") errors.push("escalation: contrib_1 wrong trigger");
+  if (d.criteria?.did?.conditions?.count != null) errors.push("escalation: contrib_1 must be count-less");
+  if (d.criteria?.did?.conditions?.type !== "ghost") errors.push("escalation: contrib_1 type filter missing");
+  if (String(d.rewards?.function) !== `${eNs}:contribute_1`) errors.push("escalation: contrib_1 not wired to contribute_1");
+}
+const eContrib = ef("/function/contribute_1.mcfunction");
+if (eContrib) {
+  if (!new RegExp(`advancement revoke @s only ${eNs}:contrib_1`).test(eContrib.contents)) errors.push("escalation: contribute_1 doesn't re-arm");
+  if (!/execute unless score #stage esc matches 1 run return 0/.test(eContrib.contents)) errors.push("escalation: contribute_1 counts while inactive");
+  if (!/scoreboard players add #prog esc 1/.test(eContrib.contents)) errors.push("escalation: contribute_1 doesn't tally progress");
+  if (!new RegExp(`execute store result bossbar ${eNs}:progress value run scoreboard players get #prog esc`).test(eContrib.contents)) errors.push("escalation: contribute_1 doesn't update the bar");
+  if (!new RegExp(`execute if score #prog esc matches 25\\.\\. run function ${eNs}:enter_2`).test(eContrib.contents)) errors.push("escalation: contribute_1 doesn't advance at the goal");
+}
+// the terminal stage has NO contribution advancement
+if (ef("/advancement/contrib_4.json")) errors.push("escalation: terminal stage should not have a contribution advancement");
+// admin tools + teardown
+const eFa = ef("/function/force_advance.mcfunction");
+if (!eFa || !new RegExp(`execute if score #stage esc matches 3 run function ${eNs}:enter_4`).test(eFa.contents)) errors.push("escalation: force_advance missing a stage jump");
+const eRestart = ef("/function/restart.mcfunction");
+if (!eRestart || !new RegExp(`bossbar remove ${eNs}:progress`).test(eRestart.contents) || !new RegExp(`function ${eNs}:start`).test(eRestart.contents)) errors.push("escalation: restart doesn't wipe + replay");
+const eUn = ef("/function/uninstall.mcfunction");
+if (!eUn || !new RegExp(`bossbar remove ${eNs}:progress`).test(eUn.contents) || !/scoreboard objectives remove esc/.test(eUn.contents)) errors.push("escalation: uninstall doesn't tear down bar + objective");
+if (!esc.bundle.files.some((f) => f.path === "data/minecraft/tags/function/load.json")) errors.push("escalation: missing load tag");
+for (const p of ["story_outline.txt", "admin_checklist.txt", "discord_announcement.md"]) {
+  if (!esc.bundle.files.some((f) => f.path === p)) errors.push(`escalation: missing side-car ${p}`);
+}
+// progress bar OFF strips all bossbar plumbing
+const escNoBar = generateEscalation({ ...newEscalationConfig(48), progressBar: false });
+if (escNoBar.bundle.files.some((f) => /bossbar/.test(f.contents))) errors.push("escalation: bossbar commands present when the bar is disabled");
+console.log("\n=== escalation: contribute_1 + enter_4 ===");
+console.log(eContrib?.contents + "\n---\n" + eEnter4?.contents);
+
 if (errors.length) {
   console.error("\nSMOKE FAILED:\n" + errors.map((e) => " - " + e).join("\n"));
   process.exit(1);
