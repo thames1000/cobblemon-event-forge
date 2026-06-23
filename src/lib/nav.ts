@@ -20,6 +20,7 @@ export const NAV: NavItem[] = [
   { href: "/leaderboard", label: "Leaderboard", emoji: "🏆", blurb: "Reusable points scoreboard + live ranking", ready: true },
   { href: "/escalation", label: "Escalation Stages", emoji: "✦", blurb: "Multi-phase, server-wide story events", ready: true },
   { href: "/travel", label: "Safe Travel", emoji: "🧭", blurb: "Safe teleport, rescue & forceload helpers", ready: true },
+  { href: "/mystery", label: "Mystery Hunt", emoji: "🔮", blurb: "Cryptic clue chains that reveal as you solve", ready: true },
   { href: "/items", label: "Item Designer", emoji: "🏷️", blurb: "Named/lore items & /give commands", ready: true },
   { href: "/quests", label: "Questlines", emoji: "🗺️", blurb: "Advancement tree + FTB Quests export", ready: true },
 ];

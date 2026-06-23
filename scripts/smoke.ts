@@ -1095,6 +1095,72 @@ if (tvOff.bundle.files.some((f) => /travel_use|use_travel|give_travel_item/.test
 console.log("\n=== travel: enter + rescue ===");
 console.log(tvEnter?.contents + "\n---\n" + tvResc?.contents);
 
+// === Mystery Objectives ===
+import { newMysteryConfig } from "../src/lib/mystery/types";
+import { generateMystery } from "../src/lib/mystery/generate";
+
+const my = generateMystery(newMysteryConfig(48)); // "The Whispering Hunt", 3 steps
+const myf = (s: string) => my.bundle.files.find((f) => f.path.endsWith(s));
+const myNs = my.bundle.namespace; // the_whispering_hunt
+if (!my.validation.ok) errors.push("mystery: invalid datapack");
+for (const f of my.bundle.files) {
+  if (f.path.endsWith(".json")) { try { JSON.parse(f.contents); } catch { errors.push(`mystery: bad json ${f.path}`); } }
+}
+// clue shows cryptic text; pure-mystery (revealTasks off) must NOT show the explicit task
+const myClue = myf("/function/clue_1.mcfunction");
+if (!myClue || !/Something watches from the forest after dusk/.test(myClue.contents)) errors.push("mystery: clue_1 missing cryptic text");
+if (myClue && /Objective:/.test(myClue.contents)) errors.push("mystery: clue should not reveal the task in pure-mystery mode");
+// contribution: count-less, only tallies on the active step, advances at target
+const myAdv = myf("/advancement/contrib_1.json");
+if (myAdv) {
+  const d = JSON.parse(myAdv.contents);
+  if (d.criteria?.did?.conditions?.count != null) errors.push("mystery: contrib_1 must be count-less");
+  if (d.criteria?.did?.conditions?.type !== "ghost") errors.push("mystery: contrib_1 type filter missing");
+}
+const myContrib = myf("/function/contribute_1.mcfunction");
+if (myContrib) {
+  if (!new RegExp(`advancement revoke @s only ${myNs}:contrib_1`).test(myContrib.contents)) errors.push("mystery: contribute_1 doesn't re-arm");
+  if (!/execute unless score @s myst_step matches 1 run return 0/.test(myContrib.contents)) errors.push("mystery: contribute_1 tallies off-step");
+  if (!new RegExp(`execute if score @s myst_prog matches 5\\.\\. run function ${myNs}:reveal_1`).test(myContrib.contents)) errors.push("mystery: contribute_1 doesn't reveal at the target");
+}
+// reveal: solved msg + reward, then advance to the next step
+const myReveal1 = myf("/function/reveal_1.mcfunction");
+if (myReveal1 && (!/✓ Solved!/.test(myReveal1.contents) || !/give @s cobblemon:rare_candy 3/.test(myReveal1.contents) || !new RegExp(`function ${myNs}:enter_2`).test(myReveal1.contents))) errors.push("mystery: reveal_1 missing solved/reward/advance");
+// final reveal: finale instead of advancing, marks done (step = N+1 = 4), grants finale reward
+const myReveal3 = myf("/function/reveal_3.mcfunction");
+if (myReveal3 && (!/scoreboard players set @s myst_step 4/.test(myReveal3.contents) || !/give @s cobblemon:master_ball 1/.test(myReveal3.contents))) errors.push("mystery: final reveal missing done-marker / finale reward");
+if (myReveal3 && new RegExp(`function ${myNs}:enter_4`).test(myReveal3.contents)) errors.push("mystery: final step should not advance to a non-existent step");
+// enter resets progress + shows the clue
+const myEnter2 = myf("/function/enter_2.mcfunction");
+if (!myEnter2 || !/scoreboard players set @s myst_step 2/.test(myEnter2.contents) || !/scoreboard players set @s myst_prog 0/.test(myEnter2.contents) || !new RegExp(`function ${myNs}:clue_2`).test(myEnter2.contents)) errors.push("mystery: enter_2 doesn't set step + reset + show clue");
+// clue item: begins when unstarted (matches 1.. fails for unset/0), else re-reads; reusable
+const myUse = myf("/function/use_clue.mcfunction");
+if (myUse) {
+  if (!new RegExp(`execute unless score @s myst_step matches 1\\.\\. run function ${myNs}:begin`).test(myUse.contents)) errors.push("mystery: use_clue doesn't begin for new players");
+  if (!new RegExp(`execute if score @s myst_step matches 1\\.\\. run function ${myNs}:show_clue`).test(myUse.contents)) errors.push("mystery: use_clue doesn't re-read for started players");
+  if (!/give @s minecraft:paper\[/.test(myUse.contents) || !new RegExp(`advancement revoke @s only ${myNs}:use_clue`).test(myUse.contents)) errors.push("mystery: clue item not reusable (re-give + re-arm)");
+}
+const myShow = myf("/function/show_clue.mcfunction");
+if (!myShow || !/execute if score @s myst_step matches 4\.\. run tellraw @s/.test(myShow.contents)) errors.push("mystery: show_clue missing the already-solved branch");
+// begin starts at step 1
+if (!myf("/function/begin.mcfunction")?.contents.includes(`function ${myNs}:enter_1`)) errors.push("mystery: begin doesn't enter step 1");
+// lifecycle + side-cars
+const myLoad = myf("/function/load.mcfunction");
+if (!myLoad || !/scoreboard objectives add myst_step dummy/.test(myLoad.contents)) errors.push("mystery: load doesn't create the step objective");
+const myUn = myf("/function/uninstall.mcfunction");
+if (!myUn || !/scoreboard objectives remove myst_step/.test(myUn.contents) || !/clear @a minecraft:paper\[minecraft:custom_data=\{mystery:"the_whispering_hunt"\}\]/.test(myUn.contents)) errors.push("mystery: uninstall incomplete");
+if (!my.bundle.files.some((f) => f.path === "data/minecraft/tags/function/load.json")) errors.push("mystery: missing load tag");
+for (const p of ["mystery_outline.txt", "admin_checklist.txt", "discord_announcement.md"]) {
+  if (!my.bundle.files.some((f) => f.path === p)) errors.push(`mystery: missing side-car ${p}`);
+}
+// the answer-key outline DOES list the hidden tasks (for the owner)
+if (!myf("mystery_outline.txt")?.contents.includes("Catch Pokémon ×5")) errors.push("mystery: outline answer key missing the hidden task");
+// revealTasks ON adds the explicit objective to the clue
+const myReveal = generateMystery({ ...newMysteryConfig(48), revealTasks: true });
+if (!myReveal.bundle.files.find((f) => f.path.endsWith("/function/clue_1.mcfunction"))?.contents.includes("Objective:")) errors.push("mystery: revealTasks should append the objective to the clue");
+console.log("\n=== mystery: contribute_1 + use_clue ===");
+console.log(myContrib?.contents + "\n---\n" + myUse?.contents);
+
 if (errors.length) {
   console.error("\nSMOKE FAILED:\n" + errors.map((e) => " - " + e).join("\n"));
   process.exit(1);
