@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { EVENT_PRESETS, configFromPreset, BUCKET_DEFAULTS } from "@/lib/catalog/eventTypes";
 import { POKEMON, ALL_TYPES } from "@/lib/catalog/pokemon";
 import { MC_VERSIONS } from "@/lib/datapack/packMeta";
@@ -12,6 +12,7 @@ import { downloadZip, downloadText } from "@/lib/download";
 import ObjectiveEditor from "@/app/components/ObjectiveEditor";
 import RewardList, { SharedDatalists } from "@/app/components/RewardList";
 import { randomEvent, DIFFICULTIES } from "@/lib/event/randomize";
+import { toPortableEvent, fromPortableEvent } from "@/lib/event/portable";
 import type { Difficulty } from "@/lib/event/randomize";
 import type { EventConfig, Bucket, WeatherTheme, LegendaryTrigger, RewardTier } from "@/lib/event/types";
 
@@ -59,6 +60,8 @@ export default function ForgePage() {
   const [config, setConfig] = useState<EventConfig>(() => configFromPreset("legendary-hunt"));
   const [activeFile, setActiveFile] = useState<string>("");
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
+  const [importError, setImportError] = useState<string>("");
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const generateFull = () => {
     setConfig(randomEvent(difficulty));
@@ -96,6 +99,19 @@ export default function ForgePage() {
   const downloadDatapack = () => downloadZip(zipDatapack(result.bundle.files), result.datapackFileName);
   const downloadBundle = () => downloadZip(zipAll(result.bundle.slug, result.bundle.files), `${result.bundle.slug}_bundle.zip`);
 
+  // ----- import / export the whole event config (edit & re-run later) -----
+  const exportConfig = () => downloadText(toPortableEvent(config), `${result.bundle.slug}.eventconfig.json`);
+  const importConfig = (file: File) => {
+    file
+      .text()
+      .then((txt) => {
+        setConfig(fromPortableEvent(txt));
+        setActiveFile("");
+        setImportError("");
+      })
+      .catch((err: unknown) => setImportError(err instanceof Error ? err.message : "could not read that file"));
+  };
+
   const errorCount = result.validation.issues.filter((i) => i.severity === "error").length;
   const warnCount = result.validation.issues.filter((i) => i.severity === "warning").length;
 
@@ -130,8 +146,31 @@ export default function ForgePage() {
               </button>
             ))}
           </div>
-          <span className="ml-auto text-[11px] text-slate-500">fills everything below — then tweak &amp; download</span>
+          <div className="ml-auto flex flex-wrap items-center gap-1.5">
+            <button className="btn-ghost px-2.5 py-1 text-xs" onClick={exportConfig} disabled={!config.title} title="Save this event as a JSON you can re-import later">
+              ⬇ Export config
+            </button>
+            <button className="btn-ghost px-2.5 py-1 text-xs" onClick={() => fileInput.current?.click()} title="Load a saved event (or the event_config.json from a downloaded bundle)">
+              ⬆ Import config
+            </button>
+            <input
+              ref={fileInput}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) importConfig(f);
+                e.target.value = "";
+              }}
+            />
+          </div>
         </div>
+        {importError ? (
+          <p className="mt-1.5 text-[11px] text-red-300">⚠ Import failed: {importError}</p>
+        ) : (
+          <p className="mt-1.5 text-[11px] text-slate-500">Generate or pick a template, then tweak &amp; download. Use Export/Import config to save an event and edit it again later.</p>
+        )}
       </header>
 
       {/* preset picker */}

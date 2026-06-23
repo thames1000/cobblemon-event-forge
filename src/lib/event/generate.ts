@@ -14,6 +14,7 @@ import { validateDatapack } from "../datapack/validate";
 import { buildBountiesFile } from "./bounties";
 import { buildDiscordAnnouncement } from "./discord";
 import { buildChecklist } from "./checklist";
+import { toPortableEvent } from "./portable";
 
 export interface GenerateResult {
   bundle: Bundle;
@@ -112,6 +113,8 @@ export function generateEvent(config: EventConfig): GenerateResult {
     buildBountiesFile({ eventSlug: slug, config }),
     buildDiscordAnnouncement({ config }),
     buildChecklist({ config, slug, namespace, datapackFileName, validation }),
+    // re-importable snapshot of this event — drop it back into the Forge to edit/re-run later
+    { path: "event_config.json", contents: toPortableEvent(config), kind: "readme", label: "event_config.json" },
   ];
 
   const bundle: Bundle = {
