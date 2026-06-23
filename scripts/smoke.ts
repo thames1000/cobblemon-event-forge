@@ -324,12 +324,25 @@ const enterFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/enter_
 if (!enterFn || !enterFn.contents.includes("Welcome to the")) errors.push("safari: missing/empty enter function");
 const giveTicket = sfres.bundle.files.find((f) => /give_.*_ticket\.mcfunction$/.test(f.path));
 if (!giveTicket || !/give @s minecraft:name_tag\[.*safari:"haunted_woods_safari"/.test(giveTicket.contents)) errors.push("safari: ticket give command wrong");
-// reward objective advancement (catch ghost)
-const rewardAdv = sfres.bundle.files.find((f) => f.path.endsWith("/advancement/bounty_1.json"));
-if (rewardAdv) {
-  const d = JSON.parse(rewardAdv.contents);
-  if (d.criteria?.done?.conditions?.type !== "ghost") errors.push("safari: reward objective wrong type");
+// per-visit catch bounty: a COUNT-LESS catch advancement (an event, not a cumulative
+// milestone) feeds a tick that counts only in-zone catches and re-arms itself
+const catchAdv = sfres.bundle.files.find((f) => f.path.endsWith("/advancement/catch_haunted_woods_safari.json"));
+if (!catchAdv) errors.push("safari: missing catch-bounty advancement");
+else {
+  const d = JSON.parse(catchAdv.contents);
+  if (d.criteria?.caught?.trigger !== "cobblemon:catch_pokemon") errors.push("safari: catch bounty wrong trigger");
+  if (d.criteria?.caught?.conditions?.type !== "ghost") errors.push("safari: catch bounty wrong type");
+  if (d.criteria?.caught?.conditions?.count != null) errors.push("safari: catch bounty must be count-less (cumulative count re-fires on revoke)");
 }
+const catchTick = sfres.bundle.files.find((f) => f.path.endsWith("/function/catch_tick_haunted_woods_safari.mcfunction"));
+if (!catchTick || !/tag=haunted_woods_safari_inzone\] run scoreboard players add @s safari_caught 1/.test(catchTick.contents))
+  errors.push("safari: catch tick doesn't count in-zone catches");
+if (catchTick && !/advancement revoke @s only haunted_woods_safari:catch_haunted_woods_safari/.test(catchTick.contents))
+  errors.push("safari: catch tick doesn't re-arm the advancement");
+const rewardFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/reward_haunted_woods_safari.mcfunction"));
+if (!rewardFn || !/scoreboard players set @s safari_caught 0/.test(rewardFn.contents)) errors.push("safari: reward doesn't reset the per-visit counter");
+if (enterFn && !(/scoreboard players set @s safari_caught 0/.test(enterFn.contents) && /advancement revoke @s only haunted_woods_safari:catch_haunted_woods_safari/.test(enterFn.contents)))
+  errors.push("safari: enter doesn't arm the catch bounty");
 // side-cars present
 for (const p of ["safari_rules.txt", "npc_dialogue.txt", "sign_text.txt", "discord_announcement.md", "admin_checklist.txt"]) {
   if (!sfres.bundle.files.some((f) => f.path === p)) errors.push(`safari: missing side-car ${p}`);

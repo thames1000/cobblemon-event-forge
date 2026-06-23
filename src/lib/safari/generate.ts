@@ -7,8 +7,7 @@ import { buildPackMeta } from "../datapack/packMeta";
 import { buildSpawnFiles } from "../datapack/spawns";
 import { validateDatapack } from "../datapack/validate";
 import { usableGiveCommand, consumeAdvancement } from "../datapack/usableItem";
-import { buildObjectiveFiles } from "../objective/generate";
-import { newObjective } from "../objective/types";
+import { compileRewardLines } from "../reward/actions";
 import { buildRulesBoard, buildNpcDialogue, buildSignText, buildSafariDiscord, buildSafariChecklist } from "./text";
 import { BIOME_LOOKS } from "./vanillaBiomeLooks";
 
@@ -26,6 +25,23 @@ const CALC_OBJ = "safari_calc";
 const RET_X = "safari_ret_x";
 const RET_Y = "safari_ret_y";
 const RET_Z = "safari_ret_z";
+// Blocks safari mons may spawn ON (neededBaseBlocks). Covers every arena surface —
+// crucially ICE & SNOW — so water mons spawn on a frozen lake instead of needing open
+// water, and land mons spawn on dirt/stone/sand/terracotta across the other themes.
+const SAFARI_GROUND_BLOCKS = [
+  "#minecraft:dirt",
+  "#minecraft:base_stone_overworld",
+  "#minecraft:sand",
+  "#minecraft:ice",
+  "#minecraft:snow",
+  "minecraft:gravel",
+  "minecraft:terracotta",
+  "minecraft:orange_terracotta",
+  "minecraft:red_terracotta",
+];
+// Per-VISIT catch counter for the reward bounty (reset on entry, so the bounty is
+// earnable again each visit instead of being a one-shot lifetime milestone).
+const CAUGHT_OBJ = "safari_caught";
 
 /** Build the tiered featured-mon list (common / rare / ultra-rare). */
 function tieredFeatured(config: SafariConfig): FeaturedMon[] {
@@ -71,6 +87,8 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
     ...(config.arena.enabled ? [`function ${ns}:return_${slug}`] : []),
     ...(config.timer.enabled ? [`scoreboard players reset @s ${TIMER_OBJ}`] : []),
     ...(leaveOn ? [`clear @s ${leaveItem}[minecraft:custom_data={${SAFARI_DATA_KEY}:"${leaveValue}"}]`] : []),
+    // On exit, zero the per-visit catch counter so the next visit starts fresh.
+    ...(config.reward.enabled ? [`scoreboard players reset @s ${CAUGHT_OBJ}`] : []),
   ];
 
   // Exclusive spawns: the arena gets its own custom biome that no default Cobblemon
@@ -94,6 +112,12 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
       // it via the dimension; with no arena they can spawn anywhere.
       weather: "any",
       featured: tieredFeatured(config),
+      // Water mons spawn on the walkable surface (not open water) so they're catchable
+      // on foot even on a frozen lake...
+      aquaticContext: "grounded",
+      // ...and they're allowed to stand on the actual arena blocks (ice/snow/etc.),
+      // which the default "natural" preset excludes.
+      baseBlocks: SAFARI_GROUND_BLOCKS,
       ...(config.arena.enabled ? { dimensions: [rwDim] } : {}),
     }),
   ];
@@ -430,6 +454,14 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
             ]
           : []),
         `tellraw @s ${JSON.stringify({ text: `You have ${config.timeLimitMinutes} minutes. Rules: ${config.rules.join("; ")}`, color: "gray" })}`,
+        ...(config.reward.enabled
+          ? [
+              `# arm the catch bounty for this visit: zero the per-visit counter and re-arm`,
+              `# the catch advancement so every in-zone catch counts toward it.`,
+              `scoreboard players set @s ${CAUGHT_OBJ} 0`,
+              `advancement revoke @s only ${ns}:catch_${slug}`,
+            ]
+          : []),
         ...(config.timer.enabled
           ? [
               `# start the countdown and kick off the 1s loop (the action-bar timer appears`,
@@ -487,19 +519,61 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
     });
   }
 
-  // --- reward objective (catch N of a type) ---
+  // --- per-visit catch bounty (catch N of a type IN the zone; re-earnable each visit) ---
+  // Cobblemon's catch_pokemon COUNT is cumulative (lifetime), so a count advancement
+  // can't be revoked to repeat — it re-fires instantly. Instead a COUNT-LESS catch
+  // advancement fires on EACH qualifying catch (an event, not a milestone); its reward
+  // re-arms it and bumps a per-player score, but only while the player is inside the
+  // zone. At the target we grant the reward and reset — earnable again next visit, and
+  // catches made outside the zone never count, so there's no leave/re-enter farm.
   if (config.reward.enabled) {
     const typeStr = config.reward.type === "any" ? "Pokémon" : `${config.reward.type}-type`;
-    const obj = newObjective("reward", {
-      mode: "auto",
-      triggerId: "cobblemon:catch_pokemon",
-      count: config.reward.count,
-      pokemonType: config.reward.type,
-      announce: true,
-      label: `Catch ${config.reward.count} ${typeStr} in the ${config.title}`,
-      rewards: config.reward.rewards,
+    const target = Math.max(1, Math.round(config.reward.count));
+    const label = `Catch ${target} ${typeStr} in the ${config.title}`;
+    const catchAdv = `${ns}:catch_${slug}`;
+    loadLines.push(`scoreboard objectives add ${CAUGHT_OBJ} dummy`);
+    uninstallLines.push(`scoreboard players reset @a ${CAUGHT_OBJ}`);
+    datapackFiles.push({
+      path: `data/${ns}/advancement/catch_${slug}.json`,
+      contents: JSON.stringify(
+        {
+          // no `count` → fires on every qualifying catch, not a cumulative milestone
+          criteria: { caught: { trigger: "cobblemon:catch_pokemon", conditions: config.reward.type === "any" ? {} : { type: config.reward.type } } },
+          requirements: [["caught"]],
+          rewards: { function: `${ns}:catch_tick_${slug}` },
+        },
+        null,
+        2,
+      ),
+      kind: "advancement",
+      label: "catch-bounty advancement",
     });
-    datapackFiles.push(...buildObjectiveFiles({ namespace: ns, objectives: [obj], packFormat: config.packFormat }));
+    datapackFiles.push({
+      path: `data/${ns}/function/catch_tick_${slug}.mcfunction`,
+      contents: [
+        `# Runs on each ${typeStr} catch. Only count it if the player is inside the zone;`,
+        `# re-arm there so the next catch fires too. Outside the zone we DON'T re-arm, so`,
+        `# the advancement goes dormant until the next entry re-arms it.`,
+        `execute if entity @s[tag=${slug}_inzone] run advancement revoke @s only ${catchAdv}`,
+        `execute if entity @s[tag=${slug}_inzone] run scoreboard players add @s ${CAUGHT_OBJ} 1`,
+        `execute if entity @s[tag=${slug}_inzone] if score @s ${CAUGHT_OBJ} matches ${target}.. run function ${ns}:reward_${slug}`,
+        "",
+      ].join("\n"),
+      kind: "function",
+      label: "catch_tick.mcfunction",
+    });
+    datapackFiles.push({
+      path: `data/${ns}/function/reward_${slug}.mcfunction`,
+      contents: [
+        `# Bounty complete — ${label}. Grant the reward and reset so it's earnable again.`,
+        `tellraw @s ${JSON.stringify({ text: `Bounty complete — ${label}!`, color: "gold" })}`,
+        ...compileRewardLines(config.reward.rewards, { packFormat: config.packFormat }),
+        `scoreboard players set @s ${CAUGHT_OBJ} 0`,
+        "",
+      ].join("\n"),
+      kind: "function",
+      label: "reward.mcfunction",
+    });
   }
 
   // --- load (objective setup) + uninstall (teardown), if anything needs them ---
