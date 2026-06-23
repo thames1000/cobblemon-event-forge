@@ -832,6 +832,88 @@ console.log(schedule?.contents);
 console.log("=== calendar: discord_schedule.md ===");
 console.log(discord?.contents);
 
+// === Team vs Team ===
+import { newTeamsConfig, newTeamGoal } from "../src/lib/teams/types";
+import { generateTeams } from "../src/lib/teams/generate";
+
+const tmCfg = newTeamsConfig(48);
+tmCfg.title = "Team Clash";
+tmCfg.scoring.catchType = "electric";
+tmCfg.goals = [newTeamGoal("g1", { triggerId: "cobblemon:catch_pokemon", count: 20, pokemonType: "electric", points: 100, announce: true, rewards: [{ kind: "item", itemId: "cobblemon:rare_candy", count: 3 }] })];
+const tm = generateTeams(tmCfg);
+const tf = (s: string) => tm.bundle.files.find((f) => f.path.endsWith(s));
+if (!tm.validation.ok) errors.push("teams: invalid datapack");
+for (const f of tm.bundle.files) {
+  if (f.path.endsWith(".json")) { try { JSON.parse(f.contents); } catch { errors.push(`teams: bad json ${f.path}`); } }
+}
+// join items: one usable give per team, tagged with custom_data teams_join:<id>
+const tJoin = tf("/function/join_items.mcfunction");
+if (!tJoin || !/give @s minecraft:paper\[.*teams_join:"red".*\] 1/.test(tJoin.contents) || !/teams_join:"blue"/.test(tJoin.contents)) errors.push("teams: join_items missing per-team usable items");
+// consume advancement → join function, with the SNBT-string custom_data predicate
+const tAdvJoin = tf("/advancement/use_join_red.json");
+if (!tAdvJoin) errors.push("teams: missing use_join_red advancement");
+else {
+  const d = JSON.parse(tAdvJoin.contents);
+  if (d.criteria?.used?.trigger !== "minecraft:consume_item") errors.push("teams: join advancement wrong trigger");
+  if (d.criteria?.used?.conditions?.item?.predicates?.["minecraft:custom_data"] !== '{teams_join:"red"}') errors.push("teams: join custom_data not the SNBT string form");
+  if (String(d.rewards?.function) !== "team_clash:join_red") errors.push("teams: join advancement not wired to join_red");
+}
+const tJoinRed = tf("/function/join_red.mcfunction");
+if (!tJoinRed || !/team join team_clash_red @s/.test(tJoinRed.contents)) errors.push("teams: join_red doesn't join the vanilla team");
+if (tJoinRed && !/tag @s add team_clash_player/.test(tJoinRed.contents)) errors.push("teams: join_red doesn't tag the player as an event participant");
+if (tJoinRed && !/advancement revoke @s only team_clash:use_join_red/.test(tJoinRed.contents)) errors.push("teams: join_red doesn't re-arm its advancement");
+// random shuffle of everyone online
+const tShuf = tf("/function/shuffle.mcfunction");
+if (!tShuf || !/execute as @a store result score @s teams_rng run random value 1\.\.2/.test(tShuf.contents)) errors.push("teams: shuffle missing the random roll");
+if (tShuf && !/execute as @a\[scores=\{teams_rng=1\}\] run team join team_clash_red @s/.test(tShuf.contents)) errors.push("teams: shuffle doesn't assign by the random bucket");
+if (tShuf && !/tag @a add team_clash_player/.test(tShuf.contents)) errors.push("teams: shuffle doesn't tag assigned players");
+// per-action scoring: count-LESS, self-re-arming, awards team + personal points
+const tCatchAdv = tf("/advancement/score_catch.json");
+if (!tCatchAdv) errors.push("teams: missing score_catch advancement");
+else {
+  const d = JSON.parse(tCatchAdv.contents);
+  if (d.criteria?.caught?.trigger !== "cobblemon:catch_pokemon") errors.push("teams: score_catch wrong trigger");
+  if (d.criteria?.caught?.conditions?.count != null) errors.push("teams: score_catch must be count-less (cumulative count would never re-fire)");
+  if (d.criteria?.caught?.conditions?.type !== "electric") errors.push("teams: score_catch type filter not applied");
+}
+const tCatch = tf("/function/score_catch.mcfunction");
+if (tCatch && !/advancement revoke @s only team_clash:score_catch/.test(tCatch.contents)) errors.push("teams: score_catch doesn't re-arm");
+if (tCatch && !/execute unless entity @s\[tag=team_clash_player\] run return 0/.test(tCatch.contents)) errors.push("teams: score_catch scores non-participants");
+if (tCatch && (!/execute if entity @s\[team=team_clash_red\] run scoreboard players add TeamRed team_score 3/.test(tCatch.contents) || !/scoreboard players add @s team_pts 3/.test(tCatch.contents))) errors.push("teams: score_catch doesn't award team + personal points");
+if (!tf("/advancement/score_battle.json") || !tf("/advancement/score_shiny.json")) errors.push("teams: missing battle/shiny scoring advancements");
+// goal: one-shot, awards team points + personal reward + announce
+const tGoalAdv = tf("/advancement/goal_1.json");
+if (tGoalAdv) {
+  const d = JSON.parse(tGoalAdv.contents);
+  if (d.criteria?.done?.conditions?.count !== 20 || d.criteria?.done?.conditions?.type !== "electric") errors.push("teams: goal_1 conditions wrong");
+}
+const tGoal = tf("/function/goal_1.mcfunction");
+if (tGoal && (!/give @s cobblemon:rare_candy 3/.test(tGoal.contents) || !/scoreboard players add TeamRed team_score 100/.test(tGoal.contents) || !/"selector":"@s"/.test(tGoal.contents))) errors.push("teams: goal_1 missing reward / team points / announce");
+// standings + winner
+const tScores = tf("/function/scores.mcfunction");
+if (!tScores || !/"score":\{"name":"TeamRed","objective":"team_score"\}/.test(tScores.contents)) errors.push("teams: scores missing live team score component");
+const tWin = tf("/function/winner.mcfunction");
+if (!tWin || !/execute if score TeamRed team_score >= TeamBlue team_score run tellraw @a/.test(tWin.contents)) errors.push("teams: winner missing the leader comparison");
+// lifecycle: load creates coloured teams + sidebar + seeds scores; uninstall tears it all down
+const tLoad = tf("/function/load.mcfunction");
+if (!tLoad || !/team add team_clash_red/.test(tLoad.contents) || !/team modify team_clash_red color red/.test(tLoad.contents)) errors.push("teams: load doesn't create the coloured team");
+if (tLoad && !/scoreboard objectives setdisplay sidebar team_score/.test(tLoad.contents)) errors.push("teams: load doesn't show the sidebar");
+if (tLoad && !/scoreboard players add TeamRed team_score 0/.test(tLoad.contents)) errors.push("teams: load doesn't seed team scores onto the sidebar");
+if (!tm.bundle.files.some((f) => f.path === "data/minecraft/tags/function/load.json")) errors.push("teams: missing load tag");
+const tUn = tf("/function/uninstall.mcfunction");
+if (!tUn || !/team remove team_clash_red/.test(tUn.contents) || !/scoreboard objectives setdisplay sidebar$/m.test(tUn.contents)) errors.push("teams: uninstall doesn't remove teams + clear the sidebar");
+if (tUn && !/clear @a minecraft:paper\[minecraft:custom_data=\{teams_join:"red"\}\]/.test(tUn.contents)) errors.push("teams: uninstall doesn't reclaim join items");
+// side-cars
+for (const p of ["admin_checklist.txt", "discord_announcement.md", "rules_board.txt"]) {
+  if (!tm.bundle.files.some((f) => f.path === p)) errors.push(`teams: missing side-car ${p}`);
+}
+// sidebar off + a disabled scoring rule drop their plumbing
+const tmOff = generateTeams({ ...tmCfg, sidebar: false, scoring: { ...tmCfg.scoring, perBattle: { enabled: false, points: 5 } } });
+if (tmOff.bundle.files.find((f) => f.path.endsWith("/function/load.mcfunction"))?.contents.includes("setdisplay sidebar")) errors.push("teams: sidebar plumbing present when disabled");
+if (tmOff.bundle.files.some((f) => /score_battle/.test(f.path))) errors.push("teams: battle scoring files present when disabled");
+console.log("\n=== teams: score_catch + winner ===");
+console.log(tCatch?.contents + "\n---\n" + tWin?.contents);
+
 if (errors.length) {
   console.error("\nSMOKE FAILED:\n" + errors.map((e) => " - " + e).join("\n"));
   process.exit(1);
