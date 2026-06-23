@@ -1036,6 +1036,65 @@ if (escNoBar.bundle.files.some((f) => /bossbar/.test(f.contents))) errors.push("
 console.log("\n=== escalation: contribute_1 + enter_4 ===");
 console.log(eContrib?.contents + "\n---\n" + eEnter4?.contents);
 
+// === Safe Travel helper ===
+import { newTravelConfig } from "../src/lib/travel/types";
+import { generateTravel } from "../src/lib/travel/generate";
+
+const tvCfg = newTravelConfig(48);
+tvCfg.title = "Safari Travel";
+tvCfg.destDimension = "resource_world:haunted_woods_safari";
+tvCfg.destX = 128; tvCfg.destY = 80; tvCfg.destZ = -64;
+tvCfg.homeX = 10; tvCfg.homeY = 64; tvCfg.homeZ = 20;
+const tv = generateTravel(tvCfg);
+const tvf = (s: string) => tv.bundle.files.find((f) => f.path.endsWith(s));
+const tvNs = tv.bundle.namespace; // safari_travel
+if (!tv.validation.ok) errors.push("travel: invalid datapack");
+for (const f of tv.bundle.files) {
+  if (f.path.endsWith(".json")) { try { JSON.parse(f.contents); } catch { errors.push(`travel: bad json ${f.path}`); } }
+}
+// enter: capture return point, tp into the dest dimension, apply arrival effects
+const tvEnter = tvf("/function/travel/enter.mcfunction");
+if (tvEnter) {
+  if (!/execute store result score @s tv_x run data get entity @s Pos\[0\]/.test(tvEnter.contents)) errors.push("travel: enter doesn't capture the return point");
+  if (!/execute in resource_world:haunted_woods_safari run tp @s 128 80 -64/.test(tvEnter.contents)) errors.push("travel: enter doesn't tp into the destination dimension");
+  if (!/effect give @s minecraft:slow_falling 10 0 true/.test(tvEnter.contents) || !/effect give @s minecraft:resistance 10 2 true/.test(tvEnter.contents)) errors.push("travel: enter missing arrival protection effects");
+} else errors.push("travel: missing travel/enter");
+// exit: macro return to the captured point
+const tvExit = tvf("/function/travel/exit.mcfunction");
+if (tvExit && !new RegExp(`function ${tvNs}:travel/do_return with storage ${tvNs}:travel`).test(tvExit.contents)) errors.push("travel: exit doesn't macro-return");
+const tvRet = tvf("/function/travel/do_return.mcfunction");
+if (!tvRet || !/\$execute in minecraft:overworld run tp @s \$\(x\) \$\(y\) \$\(z\)/.test(tvRet.contents)) errors.push("travel: do_return macro malformed");
+// rescue: hard protection + tp to the fixed safe pad
+const tvResc = tvf("/function/travel/rescue.mcfunction");
+if (tvResc) {
+  if (!/effect give @s minecraft:resistance 15 4 true/.test(tvResc.contents)) errors.push("travel: rescue missing strong resistance");
+  if (!/execute in minecraft:overworld run tp @s 10 64 20/.test(tvResc.contents)) errors.push("travel: rescue doesn't tp to the safe home pad");
+} else errors.push("travel: missing travel/rescue");
+// travel item: reusable (re-arm + travel + re-give)
+const tvUse = tvf("/function/travel_use.mcfunction");
+if (tvUse && (!new RegExp(`advancement revoke @s only ${tvNs}:use_travel`).test(tvUse.contents) || !new RegExp(`function ${tvNs}:travel/enter`).test(tvUse.contents) || !/give @s minecraft:compass\[/.test(tvUse.contents))) errors.push("travel: travel_use not reusable (re-arm + enter + re-give)");
+const tvAdv = tvf("/advancement/use_travel.json");
+if (tvAdv && JSON.parse(tvAdv.contents).criteria?.used?.conditions?.item?.predicates?.["minecraft:custom_data"] !== '{tv_travel:"safari_travel"}') errors.push("travel: travel item custom_data predicate wrong");
+// lifecycle: load creates capture objectives + forceloads the pad; uninstall releases it
+const tvLoad = tvf("/function/load.mcfunction");
+if (!tvLoad || !/scoreboard objectives add tv_x dummy/.test(tvLoad.contents)) errors.push("travel: load doesn't create capture objectives");
+if (tvLoad && !/execute in resource_world:haunted_woods_safari run forceload add 128 -64/.test(tvLoad.contents)) errors.push("travel: load doesn't force-load the destination pad");
+const tvUn = tvf("/function/uninstall.mcfunction");
+if (!tvUn || !/forceload remove 128 -64/.test(tvUn.contents) || !/scoreboard objectives remove tv_x/.test(tvUn.contents)) errors.push("travel: uninstall doesn't release forceload + objectives");
+if (!tv.bundle.files.some((f) => f.path === "data/minecraft/tags/function/load.json")) errors.push("travel: missing load tag");
+if (!tv.bundle.files.some((f) => f.path === "admin_checklist.txt")) errors.push("travel: missing admin checklist");
+// fixed mode: no capture objectives / no do_return, exit tps to home coords directly
+const tvFixed = generateTravel({ ...tvCfg, returnMode: "fixed" });
+if (tvFixed.bundle.files.some((f) => /do_return/.test(f.path))) errors.push("travel: fixed mode should not emit do_return");
+if (tvFixed.bundle.files.find((f) => f.path.endsWith("/function/travel/exit.mcfunction"))?.contents.match(/execute in minecraft:overworld run tp @s 10 64 20/) == null) errors.push("travel: fixed-mode exit should tp to home coords");
+if (tvFixed.bundle.files.find((f) => f.path.endsWith("/function/load.mcfunction"))?.contents.includes("tv_x")) errors.push("travel: fixed mode should not create capture objectives");
+// forceload + travel-item off strip their plumbing
+const tvOff = generateTravel({ ...tvCfg, forceload: false, giveTravelItem: false });
+if (tvOff.bundle.files.some((f) => /forceload/.test(f.contents))) errors.push("travel: forceload commands present when disabled");
+if (tvOff.bundle.files.some((f) => /travel_use|use_travel|give_travel_item/.test(f.path))) errors.push("travel: travel-item files present when disabled");
+console.log("\n=== travel: enter + rescue ===");
+console.log(tvEnter?.contents + "\n---\n" + tvResc?.contents);
+
 if (errors.length) {
   console.error("\nSMOKE FAILED:\n" + errors.map((e) => " - " + e).join("\n"));
   process.exit(1);
