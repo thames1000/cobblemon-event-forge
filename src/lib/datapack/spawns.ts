@@ -36,11 +36,16 @@ function weatherCondition(weather: WeatherTheme): SpawnCondition {
   }
 }
 
-/** Pick a spawn context that won't look silly for the species. */
-function contextFor(speciesId: string): string {
+/**
+ * Pick a spawn context for the species. Water (non-flying) mons default to "surface"
+ * (on open water), but that fails where the water is frozen or absent — pass
+ * `aquatic: "grounded"` to spawn them on the walkable surface instead (e.g. a frozen
+ * lake arena, so they're always reachable on foot), or "submerged" for underwater.
+ */
+function contextFor(speciesId: string, aquatic: "surface" | "submerged" | "grounded"): string {
   const sp = findSpecies(speciesId);
   if (sp && sp.types.includes("water") && !sp.types.includes("flying")) {
-    return "surface";
+    return aquatic;
   }
   return "grounded";
 }
@@ -62,10 +67,14 @@ export function buildSpawnFiles(opts: {
    * not survive into the runtime world but the dimension id always matches.
    */
   dimensions?: string[];
+  /** Spawn context for water mons. Default "surface"; safaris use "grounded" so they
+   *  spawn on the walkable surface (catchable even on a frozen lake). */
+  aquaticContext?: "surface" | "submerged" | "grounded";
 }): GeneratedFile[] {
   const weather = weatherCondition(opts.weather);
   const biomes = (opts.biomes ?? []).map((b) => b.trim()).filter(Boolean);
   const dimensions = (opts.dimensions ?? []).map((d) => d.trim()).filter(Boolean);
+  const aquatic = opts.aquaticContext ?? "surface";
   const cond = { ...weather, ...(biomes.length ? { biomes } : {}), ...(dimensions.length ? { dimensions } : {}) };
   return opts.featured.map((mon) => {
     const speciesId = toId(mon.species);
@@ -73,7 +82,7 @@ export function buildSpawnFiles(opts: {
       id: `${opts.namespace}:${speciesId}_${opts.eventSlug}`,
       pokemon: speciesId,
       type: "pokemon",
-      context: contextFor(speciesId),
+      context: contextFor(speciesId, aquatic),
       bucket: mon.bucket,
       level: mon.level,
       weight: mon.weight,

@@ -94,6 +94,9 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
       // it via the dimension; with no arena they can spawn anywhere.
       weather: "any",
       featured: tieredFeatured(config),
+      // Water mons spawn on the walkable surface (not open water) so they're catchable
+      // on foot even on a frozen lake.
+      aquaticContext: "grounded",
       ...(config.arena.enabled ? { dimensions: [rwDim] } : {}),
     }),
   ];
