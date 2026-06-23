@@ -236,6 +236,12 @@ function buildChecklist(config: TeamsConfig, ns: string, slug: string, meta: Tea
   L.push("");
   L.push("TEAMS");
   for (const t of meta) L.push(`  ${t.emoji} ${t.name}  (vanilla team: ${t.vt})`);
+  if (config.sidebar) {
+    L.push("");
+    L.push("NOTE: only one datapack can own the sidebar at a time. If another pack");
+    L.push("(e.g. a Leaderboard or Escalation event) also uses the sidebar, expect");
+    L.push("them to clash — run only one sidebar pack at once.");
+  }
   return { path: "admin_checklist.txt", contents: L.join("\n") + "\n", kind: "checklist", label: "admin_checklist.txt" };
 }
 

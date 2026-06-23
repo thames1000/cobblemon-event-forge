@@ -1197,6 +1197,108 @@ if (!threw) errors.push("portable: fromPortableEvent should throw on bad JSON");
 console.log("\n=== portable: event_config.json (head) ===");
 console.log(ecSidecar?.contents.split("\n").slice(0, 6).join("\n"));
 
+// === Regression sweep: new generators across edge cases (from the session audit) ===
+import { defaultTeam } from "../src/lib/teams/types";
+import { newStage } from "../src/lib/escalation/types";
+import { newMysteryStep } from "../src/lib/mystery/types";
+import type { GeneratedFile } from "../src/lib/datapack/types";
+
+// Validate + scan a generated file set for the red flags a presence-check would miss.
+function audit(where: string, files: GeneratedFile[], ok: boolean) {
+  if (!ok) errors.push(`audit ${where}: invalid datapack`);
+  for (const f of files) {
+    if (/\bundefined\b|\bNaN\b|\[object Object\]/.test(f.contents)) errors.push(`audit ${where}: red-flag token in ${f.path}`);
+    if (f.path.endsWith(".json")) { try { JSON.parse(f.contents); } catch { errors.push(`audit ${where}: bad json ${f.path}`); } }
+    if (!f.path.endsWith(".mcfunction")) continue;
+    for (const line of f.contents.split("\n")) {
+      if (line.startsWith("#") || !line.trim()) continue;
+      if (/\bfunction \S*:(\s|$)/.test(line)) errors.push(`audit ${where}: empty function target "${line.trim()}"`);
+      if (/spawnpokemonat ~ ~ ~\s+(level=|$)/.test(line)) errors.push(`audit ${where}: speciesless spawn "${line.trim()}"`);
+      if (/@[aspe]\[\]/.test(line)) errors.push(`audit ${where}: empty selector "${line.trim()}"`);
+    }
+  }
+}
+
+// teams: 1/4 teams, no scoring, duplicate names (holder dedup), goal w/o reward
+{
+  const solo = newTeamsConfig(48); solo.title = "Solo"; solo.teams = [defaultTeam("red", "Team Red", "red", "🔴")];
+  audit("teams/1", generateTeams(solo).bundle.files, generateTeams(solo).validation.ok);
+  const quad = newTeamsConfig(48); quad.title = "Quad"; quad.teams = [defaultTeam("a", "Alpha", "red", "🔴"), defaultTeam("b", "Bravo", "blue", "🔵"), defaultTeam("c", "Charlie", "green", "🟢"), defaultTeam("d", "Delta", "yellow", "🟡")];
+  const quadR = generateTeams(quad); audit("teams/4", quadR.bundle.files, quadR.validation.ok);
+  if ((quadR.bundle.files.find((f) => f.path.endsWith("/winner.mcfunction"))!.contents.match(/>= /g) ?? []).length !== quad.teams.length * (quad.teams.length - 1)) errors.push("audit teams/4: winner comparison count wrong");
+  const noScore = newTeamsConfig(48); noScore.title = "NoScore"; noScore.scoring = { perCatch: { enabled: false, points: 0 }, catchType: "any", perBattle: { enabled: false, points: 0 }, perShiny: { enabled: false, points: 0 } };
+  audit("teams/no-scoring", generateTeams(noScore).bundle.files, generateTeams(noScore).validation.ok);
+  const dup = newTeamsConfig(48); dup.title = "Dup"; dup.teams = [defaultTeam("a", "Red Team", "red", "🔴"), defaultTeam("b", "Red Team", "blue", "🔵")];
+  const dupR = generateTeams(dup); audit("teams/dup", dupR.bundle.files, dupR.validation.ok);
+  const holders = Array.from(dupR.bundle.files.find((f) => f.path.endsWith("/load.mcfunction"))!.contents.matchAll(/scoreboard players add (\S+) team_score 0/g), (m) => m[1]);
+  if (new Set(holders).size !== holders.length) errors.push(`audit teams/dup: duplicate score holders ${holders.join(",")}`);
+  const goalNR = newTeamsConfig(48); goalNR.title = "GoalNR"; goalNR.goals = [newTeamGoal("g1", { triggerId: "cobblemon:battles_won", count: 3, points: 10, rewards: [] })];
+  audit("teams/goal-no-reward", generateTeams(goalNR).bundle.files, generateTeams(goalNR).validation.ok);
+}
+// leaderboard: empty amounts (→[1]), all auto, no sidebar, special-char title
+{
+  const ea = newLeaderboardConfig(48); ea.title = "EA"; ea.amounts = [];
+  const eaR = generateLeaderboard(ea); audit("lb/empty-amounts", eaR.bundle.files, eaR.validation.ok);
+  if (!eaR.bundle.files.some((f) => f.path.endsWith("/score/add_1.mcfunction"))) errors.push("audit lb/empty-amounts: empty amounts should fall back to [1]");
+  const aa = newLeaderboardConfig(48); aa.title = "AA"; aa.autoCatch = { enabled: true, amount: 2, type: "fire" }; aa.autoBattle = { enabled: true, amount: 3 }; aa.autoShiny = { enabled: true, amount: 50 };
+  audit("lb/all-auto", generateLeaderboard(aa).bundle.files, generateLeaderboard(aa).validation.ok);
+  const sc = newLeaderboardConfig(48); sc.title = "Safari!! Points #1";
+  const scR = generateLeaderboard(sc); audit("lb/special-char", scR.bundle.files, scR.validation.ok);
+  if (!/^[a-z0-9_.-]+$/.test(scR.bundle.namespace)) errors.push(`audit lb/special-char: invalid namespace ${scR.bundle.namespace}`);
+}
+// escalation: single (terminal-only) stage, no progress bar, bare stages
+{
+  const one = newEscalationConfig(48); one.title = "One"; one.stages = [newStage("s1", { label: "Finale", announce: "Done", effects: [{ kind: "item", itemId: "cobblemon:rare_candy", count: 1 }] })];
+  const oneR = generateEscalation(one); audit("esc/1-stage", oneR.bundle.files, oneR.validation.ok);
+  if (oneR.bundle.files.some((f) => /contrib_1\.json/.test(f.path))) errors.push("audit esc/1-stage: terminal-only stage should have no contribution advancement");
+  const nb = newEscalationConfig(48); nb.title = "NoBar"; nb.progressBar = false;
+  const nbR = generateEscalation(nb); audit("esc/no-bar", nbR.bundle.files, nbR.validation.ok);
+  if (nbR.bundle.files.some((f) => /bossbar/.test(f.contents))) errors.push("audit esc/no-bar: bossbar present when disabled");
+  const bare = newEscalationConfig(48); bare.title = "Bare"; bare.stages = [newStage("s1", { label: "Go", announce: "", effects: [], goalCount: 10 }), newStage("s2", { label: "End", announce: "", effects: [] })];
+  audit("esc/bare", generateEscalation(bare).bundle.files, generateEscalation(bare).validation.ok);
+}
+// travel: fixed return, spread + negative coords, all-safety-off, item off
+{
+  const fx = newTravelConfig(48); fx.title = "Fixed"; fx.returnMode = "fixed"; fx.homeX = -50; fx.homeY = 70; fx.homeZ = 200;
+  const fxR = generateTravel(fx); audit("travel/fixed", fxR.bundle.files, fxR.validation.ok);
+  if (fxR.bundle.files.some((f) => /do_return/.test(f.path))) errors.push("audit travel/fixed: fixed mode should not emit do_return");
+  const sp = newTravelConfig(48); sp.title = "Spread"; sp.spread = true; sp.spreadRadius = 16; sp.destX = -1280; sp.destZ = -3000;
+  const spR = generateTravel(sp); audit("travel/spread", spR.bundle.files, spR.validation.ok);
+  if (!/spreadplayers -1280 -3000 0 16 false @s/.test(spR.bundle.files.find((f) => f.path.endsWith("/travel/enter.mcfunction"))!.contents)) errors.push("audit travel/spread: spreadplayers line malformed");
+  const bare = newTravelConfig(48); bare.title = "Bare"; bare.forceload = false; bare.giveTravelItem = false; bare.arrival = { slowFalling: false, resistance: false, seconds: 5 };
+  const bareR = generateTravel(bare); audit("travel/bare", bareR.bundle.files, bareR.validation.ok);
+  // forceload + travel item are stripped; rescue still gives effects on purpose, and enter must NOT
+  if (bareR.bundle.files.some((f) => /forceload|travel_use|use_travel|give_travel_item/.test(f.path) || /forceload/.test(f.contents))) errors.push("audit travel/bare: forceload/item still present");
+  if (/effect give/.test(bareR.bundle.files.find((f) => f.path.endsWith("/travel/enter.mcfunction"))!.contents)) errors.push("audit travel/bare: enter should have no arrival effects when both are off");
+}
+// mystery: single step, reveal-tasks, empty clue, quotes in clue (escaping)
+{
+  const one = newMysteryConfig(48); one.title = "Solo"; one.steps = [newMysteryStep("m1", { clue: "Find it", triggerId: "cobblemon:catch_pokemon", count: 1, reward: [] })];
+  audit("mystery/1", generateMystery(one).bundle.files, generateMystery(one).validation.ok);
+  const rv = newMysteryConfig(48); rv.title = "Rev"; rv.revealTasks = true;
+  audit("mystery/reveal", generateMystery(rv).bundle.files, generateMystery(rv).validation.ok);
+  const q = newMysteryConfig(48); q.title = "Q"; q.steps = [newMysteryStep("m1", { clue: `A "haunting" whisper: don't look back…`, count: 3, pokemonType: "ghost" })];
+  const qR = generateMystery(q); audit("mystery/quotes", qR.bundle.files, qR.validation.ok);
+  const qClue = qR.bundle.files.find((f) => f.path.endsWith("/clue_1.mcfunction"))!.contents.split("tellraw @s ")[1].split("\n")[0];
+  try { JSON.parse(qClue); } catch { errors.push("audit mystery/quotes: clue tellraw is not valid JSON (escaping bug)"); }
+}
+// event reward-tiers: auto tier but NO auto objective → must not emit a check_complete that can never fire
+{
+  const c = configFromPreset("blank"); c.title = "Tierless"; c.objectives = [newObjective("b1", { mode: "manual", label: "by hand" })];
+  c.rewardTiers = [{ id: "winner", name: "Winner", award: "completion-each", actions: [{ kind: "item", itemId: "cobblemon:poke_ball", count: 1 }] }];
+  const r = generateEvent(c); audit("event/no-auto-obj", r.bundle.files, r.validation.ok);
+  if (r.bundle.files.some((f) => f.path.endsWith("/check_complete.mcfunction"))) errors.push("audit event/no-auto-obj: emitted check_complete with no auto objectives");
+}
+// portable: normalize survives hostile input and stays generatable
+for (const junk of [null, undefined, 42, "string", [], { presetId: "nope" }, { objectives: "x", rewardTiers: 5, pack: "y" }] as unknown[]) {
+  try {
+    const r = generateEvent(normalizeEventConfig(junk));
+    if (!r.validation.ok) errors.push(`audit portable/junk: invalid datapack for ${JSON.stringify(junk)}`);
+  } catch (e) {
+    errors.push(`audit portable/junk: threw on ${JSON.stringify(junk)}: ${(e as Error).message}`);
+  }
+}
+
 if (errors.length) {
   console.error("\nSMOKE FAILED:\n" + errors.map((e) => " - " + e).join("\n"));
   process.exit(1);
