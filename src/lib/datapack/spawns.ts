@@ -70,12 +70,24 @@ export function buildSpawnFiles(opts: {
   /** Spawn context for water mons. Default "surface"; safaris use "grounded" so they
    *  spawn on the walkable surface (catchable even on a frozen lake). */
   aquaticContext?: "surface" | "submerged" | "grounded";
+  /**
+   * Explicit list of blocks the mon may spawn ON (`neededBaseBlocks`), replacing the
+   * "natural" preset. The default preset excludes ice/snow, so water mons can't spawn
+   * on a frozen lake — listing those blocks here fixes that. Accepts block ids and #tags.
+   */
+  baseBlocks?: string[];
 }): GeneratedFile[] {
   const weather = weatherCondition(opts.weather);
   const biomes = (opts.biomes ?? []).map((b) => b.trim()).filter(Boolean);
   const dimensions = (opts.dimensions ?? []).map((d) => d.trim()).filter(Boolean);
+  const baseBlocks = (opts.baseBlocks ?? []).map((b) => b.trim()).filter(Boolean);
   const aquatic = opts.aquaticContext ?? "surface";
-  const cond = { ...weather, ...(biomes.length ? { biomes } : {}), ...(dimensions.length ? { dimensions } : {}) };
+  const cond = {
+    ...weather,
+    ...(biomes.length ? { biomes } : {}),
+    ...(dimensions.length ? { dimensions } : {}),
+    ...(baseBlocks.length ? { neededBaseBlocks: baseBlocks } : {}),
+  };
   return opts.featured.map((mon) => {
     const speciesId = toId(mon.species);
     const spawn = {
@@ -86,7 +98,9 @@ export function buildSpawnFiles(opts: {
       bucket: mon.bucket,
       level: mon.level,
       weight: mon.weight,
-      presets: ["natural"],
+      // An explicit base-block list replaces the "natural" preset (stacking both would
+      // over-restrict). Fall back to the preset when no blocks are given (events).
+      ...(baseBlocks.length ? {} : { presets: ["natural"] }),
       ...(Object.keys(cond).length > 0 ? { condition: cond } : {}),
     };
     const doc = {

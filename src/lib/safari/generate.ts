@@ -26,6 +26,20 @@ const CALC_OBJ = "safari_calc";
 const RET_X = "safari_ret_x";
 const RET_Y = "safari_ret_y";
 const RET_Z = "safari_ret_z";
+// Blocks safari mons may spawn ON (neededBaseBlocks). Covers every arena surface —
+// crucially ICE & SNOW — so water mons spawn on a frozen lake instead of needing open
+// water, and land mons spawn on dirt/stone/sand/terracotta across the other themes.
+const SAFARI_GROUND_BLOCKS = [
+  "#minecraft:dirt",
+  "#minecraft:base_stone_overworld",
+  "#minecraft:sand",
+  "#minecraft:ice",
+  "#minecraft:snow",
+  "minecraft:gravel",
+  "minecraft:terracotta",
+  "minecraft:orange_terracotta",
+  "minecraft:red_terracotta",
+];
 
 /** Build the tiered featured-mon list (common / rare / ultra-rare). */
 function tieredFeatured(config: SafariConfig): FeaturedMon[] {
@@ -95,8 +109,11 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
       weather: "any",
       featured: tieredFeatured(config),
       // Water mons spawn on the walkable surface (not open water) so they're catchable
-      // on foot even on a frozen lake.
+      // on foot even on a frozen lake...
       aquaticContext: "grounded",
+      // ...and they're allowed to stand on the actual arena blocks (ice/snow/etc.),
+      // which the default "natural" preset excludes.
+      baseBlocks: SAFARI_GROUND_BLOCKS,
       ...(config.arena.enabled ? { dimensions: [rwDim] } : {}),
     }),
   ];
