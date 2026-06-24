@@ -1,4 +1,5 @@
 import type { Bundle, GeneratedFile } from "../datapack/types";
+import { toPortableBounty } from "./portable";
 import type { ValidationResult } from "../datapack/validate";
 import type { Objective } from "../objective/types";
 import type { BountyConfig, CommunityGoal } from "./types";
@@ -196,7 +197,14 @@ export function generateBountyBoard(config: BountyConfig): BountyGenerateResult 
 
   const validation = validateDatapack(datapackFiles);
   const datapackFileName = `${slug}.zip`;
-  const sideCars: GeneratedFile[] = [buildBoardText(config), buildBountyDiscord(config), buildBountyChecklist(config, ns, validation), buildBountiesJson(config, slug)];
+  const sideCars: GeneratedFile[] = [
+    buildBoardText(config),
+    buildBountyDiscord(config),
+    buildBountyChecklist(config, ns, validation),
+    buildBountiesJson(config, slug),
+    // re-importable snapshot of this board — drop it back into the page to edit/re-run later
+    { path: "bounty_config.json", contents: toPortableBounty(config), kind: "readme", label: "bounty_config.json" },
+  ];
 
   return {
     bundle: { slug, title: config.title, namespace: ns, packFormat: config.packFormat, files: [...datapackFiles, ...sideCars] },

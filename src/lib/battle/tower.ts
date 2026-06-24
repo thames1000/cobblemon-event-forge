@@ -5,6 +5,7 @@ import { toId, toNamespace } from "../datapack/sanitize";
 import { buildPackMeta } from "../datapack/packMeta";
 import { validateDatapack } from "../datapack/validate";
 import { compileRewardLines, describeReward } from "../reward/actions";
+import { toPortableTower } from "./towerPortable";
 
 /**
  * NPC Battle Tower (Radical Cobblemon Trainers).
@@ -126,7 +127,13 @@ export function generateBattleTower(config: TowerConfig): TowerGenerateResult {
 
   const validation = validateDatapack(datapackFiles);
   const datapackFileName = `${slug}.zip`;
-  const sideCars: GeneratedFile[] = [buildTowerRewardTable(config, floors), buildTowerChecklist(config, ns, floors, validation), buildTowerDiscord(config, floors)];
+  const sideCars: GeneratedFile[] = [
+    buildTowerRewardTable(config, floors),
+    buildTowerChecklist(config, ns, floors, validation),
+    buildTowerDiscord(config, floors),
+    // re-importable snapshot of this tower — drop it back into the page to edit/re-run later
+    { path: "tower_config.json", contents: toPortableTower(config), kind: "readme", label: "tower_config.json" },
+  ];
 
   return {
     bundle: { slug, title: config.title, namespace: ns, packFormat: config.packFormat, files: [...datapackFiles, ...sideCars] },

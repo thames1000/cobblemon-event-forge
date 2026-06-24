@@ -9,6 +9,8 @@ import { MC_VERSIONS, DEFAULT_VERSION } from "@/lib/datapack/packMeta";
 import { zipDatapack, zipAll } from "@/lib/datapack/zip";
 import { DATAPACK_KINDS } from "@/lib/datapack/types";
 import { downloadZip, downloadText } from "@/lib/download";
+import ConfigPortIO from "@/app/components/ConfigPortIO";
+import { toPortableLeaderboard, fromPortableLeaderboard } from "@/lib/leaderboard/portable";
 
 export default function LeaderboardPage() {
   const [config, setConfig] = useState<LeaderboardConfig>(() => newLeaderboardConfig(DEFAULT_VERSION.packFormat));
@@ -29,8 +31,21 @@ export default function LeaderboardPage() {
   return (
     <div className="px-6 py-8">
       <header className="mb-6">
-        <div className="chip mb-3">🏆 Leaderboard</div>
-        <h1 className="text-2xl font-bold text-slate-100">Build a points leaderboard</h1>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="chip mb-3">🏆 Leaderboard</div>
+            <h1 className="text-2xl font-bold text-slate-100">Build a points leaderboard</h1>
+          </div>
+          <ConfigPortIO
+            config={config}
+            filename={`${result.bundle.slug}.leaderboard.json`}
+            toPortable={toPortableLeaderboard}
+            fromPortable={fromPortableLeaderboard}
+            onImport={(c) => { setConfig(c); setActiveFile(""); }}
+            exportDisabled={!config.title}
+            hint="Export this leaderboard as JSON, or import a saved one (or the leaderboard_config.json from a downloaded bundle) to edit & re-run."
+          />
+        </div>
         <p className="mt-1 text-sm text-slate-400">
           A reusable scoreboard you can drop into any event. Admins bump scores with a function; a live, auto-sorted
           sidebar shows the ranking. Optionally it scores itself off catches, battles, and shinies. Tick-free.

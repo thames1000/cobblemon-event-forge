@@ -9,6 +9,7 @@ import { usableGiveCommand, consumeAdvancement } from "../datapack/usableItem";
 import { compileRewardLines } from "../reward/actions";
 import { buildRulesBoard, buildNpcDialogue, buildSignText, buildSafariDiscord, buildSafariChecklist } from "./text";
 import { BIOME_LOOKS } from "./vanillaBiomeLooks";
+import { toPortableSafari } from "./portable";
 
 export interface SafariGenerateResult {
   bundle: Bundle;
@@ -621,6 +622,8 @@ export function generateSafari(config: SafariConfig): SafariGenerateResult {
     buildSignText(config),
     buildSafariDiscord(config),
     buildSafariChecklist({ config, namespace: ns, slug, datapackFileName, validation }),
+    // re-importable snapshot of this safari — drop it back into the page to edit/re-run later
+    { path: "safari_config.json", contents: toPortableSafari(config), kind: "readme", label: "safari_config.json" },
   ];
 
   return {

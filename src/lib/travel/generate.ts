@@ -1,4 +1,5 @@
 import type { Bundle, GeneratedFile } from "../datapack/types";
+import { toPortableTravel } from "./portable";
 import type { ValidationResult } from "../datapack/validate";
 import type { TravelConfig } from "./types";
 import { toId, toNamespace } from "../datapack/sanitize";
@@ -126,6 +127,8 @@ export function generateTravel(config: TravelConfig): TravelResult {
   files.push(fn(ns, "uninstall", uninstall));
 
   files.push(buildChecklist(config, ns, slug));
+  // re-importable snapshot of this travel pack — drop it back into the page to edit/re-run later
+  files.push({ path: "travel_config.json", contents: toPortableTravel(config), kind: "readme", label: "travel_config.json" });
 
   const validation = validateDatapack(files);
   const bundle: Bundle = { slug, title: config.title, namespace: ns, packFormat: config.packFormat, files };

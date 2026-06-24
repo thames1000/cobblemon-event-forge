@@ -1,4 +1,5 @@
 import type { Bundle, GeneratedFile } from "../datapack/types";
+import { toPortableLeaderboard } from "./portable";
 import type { ValidationResult } from "../datapack/validate";
 import type { LeaderboardConfig } from "./types";
 import { toId, toNamespace } from "../datapack/sanitize";
@@ -78,6 +79,8 @@ export function generateLeaderboard(config: LeaderboardConfig): LeaderboardResul
   files.push(buildTemplate(config, sidebarTitle, unit, top));
   files.push(buildJson(config, obj, unit, top));
   files.push(buildChecklist(config, ns, slug, obj, amounts));
+  // re-importable snapshot of this leaderboard — drop it back into the page to edit/re-run later
+  files.push({ path: "leaderboard_config.json", contents: toPortableLeaderboard(config), kind: "readme", label: "leaderboard_config.json" });
 
   const validation = validateDatapack(files);
   const bundle: Bundle = { slug, title: config.title, namespace: ns, packFormat: config.packFormat, files };

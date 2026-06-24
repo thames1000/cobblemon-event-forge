@@ -1,4 +1,5 @@
 import type { Bundle, GeneratedFile } from "../datapack/types";
+import { toPortableItems } from "./portable";
 import type { ValidationResult } from "../datapack/validate";
 import type { ItemConfig, ItemDef, TextFormat } from "./types";
 import { toId, toNamespace } from "../datapack/sanitize";
@@ -117,7 +118,11 @@ export function generateItems(config: ItemConfig): ItemGenerateResult {
     sheet.push(`  /${giveCommand(item, config.packFormat, "@p")}`);
     sheet.push("");
   });
-  const sideCars: GeneratedFile[] = [{ path: "give_commands.txt", contents: sheet.join("\n") + "\n", kind: "readme", label: "give commands" }];
+  const sideCars: GeneratedFile[] = [
+    { path: "give_commands.txt", contents: sheet.join("\n") + "\n", kind: "readme", label: "give commands" },
+    // re-importable snapshot of this item collection — drop it back into the page to edit/re-run later
+    { path: "items_config.json", contents: toPortableItems(config), kind: "readme", label: "items_config.json" },
+  ];
 
   return {
     bundle: { slug, title: config.title, namespace: ns, packFormat: config.packFormat, files: [...datapackFiles, ...sideCars] },

@@ -1,4 +1,5 @@
 import type { Bundle, GeneratedFile } from "../datapack/types";
+import { toPortableBattle } from "./portable";
 import type { ValidationResult } from "../datapack/validate";
 import type { Species } from "../catalog/pokemon";
 import type { BattleConfig, RentalMon, RentalTeam } from "./types";
@@ -296,6 +297,8 @@ export function generateBattleFactory(config: BattleConfig): BattleGenerateResul
     buildRuleset({ config }),
     buildBattleChecklist({ config, namespace: ns, slug, teams, pool, datapackFileName, validation }),
     buildBattleDiscord({ config, count: config.draftMode === "fixed" ? teams.length : pool.length }),
+    // re-importable snapshot of this factory — drop it back into the page to edit/re-run later
+    { path: "battle_config.json", contents: toPortableBattle(config), kind: "readme", label: "battle_config.json" },
   ];
 
   return {

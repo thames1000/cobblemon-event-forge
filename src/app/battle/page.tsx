@@ -12,6 +12,9 @@ import { zipDatapack, zipAll } from "@/lib/datapack/zip";
 import { DATAPACK_KINDS } from "@/lib/datapack/types";
 import { downloadZip, downloadText } from "@/lib/download";
 import RewardList, { SharedDatalists } from "@/app/components/RewardList";
+import ConfigPortIO from "@/app/components/ConfigPortIO";
+import { toPortableBattle, fromPortableBattle } from "@/lib/battle/portable";
+import { toPortableTower, fromPortableTower } from "@/lib/battle/towerPortable";
 
 const DEFAULT_CONFIG: BattleConfig = {
   title: "Frontier Factory",
@@ -135,14 +138,37 @@ export default function Page() {
     <div className="px-6 py-8">
       <SharedDatalists />
 
-      <header className="mb-5">
-        <div className="chip mb-3">⚔️ Battle Factory</div>
-        <h1 className="text-2xl font-bold text-slate-100">Build a Battle Factory</h1>
-        <p className="mt-1 text-sm text-slate-400">
-          {pageMode === "rental"
-            ? "Pre-built rental teams + a ruleset; players draft and battle (PvP)."
-            : "An RCT NPC battle tower: a reward each floor, bigger rewards the higher you climb."}
-        </p>
+      <header className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <div className="chip mb-3">⚔️ Battle Factory</div>
+          <h1 className="text-2xl font-bold text-slate-100">Build a Battle Factory</h1>
+          <p className="mt-1 text-sm text-slate-400">
+            {pageMode === "rental"
+              ? "Pre-built rental teams + a ruleset; players draft and battle (PvP)."
+              : "An RCT NPC battle tower: a reward each floor, bigger rewards the higher you climb."}
+          </p>
+        </div>
+        {pageMode === "rental" ? (
+          <ConfigPortIO
+            config={config}
+            filename={`${result.bundle.slug}.battle.json`}
+            toPortable={toPortableBattle}
+            fromPortable={fromPortableBattle}
+            onImport={(c) => { setConfig(c); setActiveFile(""); }}
+            exportDisabled={!titleOk}
+            hint="Export this factory as JSON, or import a saved one (or the battle_config.json from a downloaded bundle)."
+          />
+        ) : (
+          <ConfigPortIO
+            config={tower}
+            filename={`${result.bundle.slug}.tower.json`}
+            toPortable={toPortableTower}
+            fromPortable={fromPortableTower}
+            onImport={(c) => { setTower(c); setActiveFile(""); }}
+            exportDisabled={!titleOk}
+            hint="Export this tower as JSON, or import a saved one (or the tower_config.json from a downloaded bundle)."
+          />
+        )}
       </header>
 
       <div className="mb-6 max-w-md">

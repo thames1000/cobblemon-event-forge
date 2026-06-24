@@ -1,4 +1,5 @@
 import type { Bundle, GeneratedFile } from "../datapack/types";
+import { toPortableEscalation } from "./portable";
 import type { ValidationResult } from "../datapack/validate";
 import type { EscalationConfig, EscalationStage } from "./types";
 import { toId, toNamespace } from "../datapack/sanitize";
@@ -138,6 +139,8 @@ export function generateEscalation(config: EscalationConfig): EscalationResult {
   files.push(buildOutline(config, slug));
   files.push(buildChecklist(config, ns, slug));
   files.push(buildDiscord(config));
+  // re-importable snapshot of this event — drop it back into the page to edit/re-run later
+  files.push({ path: "escalation_config.json", contents: toPortableEscalation(config), kind: "readme", label: "escalation_config.json" });
 
   const validation = validateDatapack(files);
   const bundle: Bundle = { slug, title: config.title, namespace: ns, packFormat: config.packFormat, files };

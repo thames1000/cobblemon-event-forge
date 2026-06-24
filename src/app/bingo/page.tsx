@@ -9,6 +9,8 @@ import { zipDatapack, zipAll } from "@/lib/datapack/zip";
 import { DATAPACK_KINDS } from "@/lib/datapack/types";
 import { downloadZip, downloadText } from "@/lib/download";
 import RewardList, { SharedDatalists } from "@/app/components/RewardList";
+import ConfigPortIO from "@/app/components/ConfigPortIO";
+import { toPortableBingo, fromPortableBingo } from "@/lib/bingo/portable";
 import type { BingoConfig } from "@/lib/bingo/board";
 
 const SIZES = [3, 4, 5];
@@ -41,8 +43,21 @@ export default function BingoPage() {
     <div className="px-6 py-8">
       <SharedDatalists />
       <header className="mb-6">
-        <div className="chip mb-3">🎲 Bingo Boards</div>
-        <h1 className="text-2xl font-bold text-slate-100">Build a bingo board</h1>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="chip mb-3">🎲 Bingo Boards</div>
+            <h1 className="text-2xl font-bold text-slate-100">Build a bingo board</h1>
+          </div>
+          <ConfigPortIO
+            config={config}
+            filename={`${result.bundle.slug}.bingo.json`}
+            toPortable={toPortableBingo}
+            fromPortable={fromPortableBingo}
+            onImport={(c) => { setConfig(c); setActiveFile(""); }}
+            exportDisabled={!config.title}
+            hint="Export this board as JSON, or import a saved one (or the bingo_config.json from a downloaded bundle) to edit & re-run."
+          />
+        </div>
         <p className="mt-1 text-sm text-slate-400">
           A grid of auto-tracked objectives. Complete a row, column, or diagonal for a reward — detected in-game with no
           tick. Click a square to reroll it.

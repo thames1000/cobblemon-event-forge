@@ -10,6 +10,8 @@ import { crateOdds, pct } from "@/lib/crate/odds";
 import { zipDatapack, zipAll } from "@/lib/datapack/zip";
 import { DATAPACK_KINDS } from "@/lib/datapack/types";
 import { downloadZip, downloadText } from "@/lib/download";
+import ConfigPortIO from "@/app/components/ConfigPortIO";
+import { toPortableCrate, fromPortableCrate } from "@/lib/crate/portable";
 import type { CrateConfig, CrateTier } from "@/lib/crate/types";
 
 // Loot tables hand out real items only — currency is excluded.
@@ -52,12 +54,25 @@ export default function CratesPage() {
   return (
     <div className="px-6 py-8">
       <header className="mb-6">
-        <div className="chip mb-3">🎁 Reward Crate Builder</div>
-        <h1 className="text-2xl font-bold text-slate-100">Build a reward crate</h1>
-        <p className="mt-1 text-sm text-slate-400">
-          Design tiers and weighted items, see live drop odds, and download a valid loot-table datapack — no
-          hand-written JSON.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="chip mb-3">🎁 Reward Crate Builder</div>
+            <h1 className="text-2xl font-bold text-slate-100">Build a reward crate</h1>
+            <p className="mt-1 text-sm text-slate-400">
+              Design tiers and weighted items, see live drop odds, and download a valid loot-table datapack — no
+              hand-written JSON.
+            </p>
+          </div>
+          <ConfigPortIO
+            config={config}
+            filename={`${result.bundle.slug}.crate.json`}
+            toPortable={toPortableCrate}
+            fromPortable={fromPortableCrate}
+            onImport={(c) => { setConfig(c); setActiveFile(""); }}
+            exportDisabled={!config.title}
+            hint="Export this crate as JSON, or import a saved one (or the crate_config.json from a downloaded bundle) to edit & re-run."
+          />
+        </div>
       </header>
 
       {/* preset picker */}

@@ -1,4 +1,5 @@
 import type { Bundle, GeneratedFile } from "../datapack/types";
+import { toPortableTeams } from "./portable";
 import type { ValidationResult } from "../datapack/validate";
 import type { Team, TeamsConfig } from "./types";
 import { toId, toNamespace } from "../datapack/sanitize";
@@ -190,6 +191,8 @@ export function generateTeams(config: TeamsConfig): TeamsResult {
   files.push(buildChecklist(config, ns, slug, meta));
   files.push(buildDiscord(config, meta));
   files.push(buildRules(config, meta));
+  // re-importable snapshot of this event — drop it back into the page to edit/re-run later
+  files.push({ path: "teams_config.json", contents: toPortableTeams(config), kind: "readme", label: "teams_config.json" });
 
   const validation = validateDatapack(files);
   const bundle: Bundle = { slug, title: config.title, namespace: ns, packFormat: config.packFormat, files };

@@ -1102,7 +1102,7 @@ if (tvFixed.bundle.files.find((f) => f.path.endsWith("/function/travel/exit.mcfu
 if (tvFixed.bundle.files.find((f) => f.path.endsWith("/function/load.mcfunction"))?.contents.includes("tv_x")) errors.push("travel: fixed mode should not create capture objectives");
 // forceload + travel-item off strip their plumbing
 const tvOff = generateTravel({ ...tvCfg, forceload: false, giveTravelItem: false });
-if (tvOff.bundle.files.some((f) => /forceload/.test(f.contents))) errors.push("travel: forceload commands present when disabled");
+if (tvOff.bundle.files.some((f) => f.path.endsWith(".mcfunction") && /forceload/.test(f.contents))) errors.push("travel: forceload commands present when disabled");
 if (tvOff.bundle.files.some((f) => /travel_use|use_travel|give_travel_item/.test(f.path))) errors.push("travel: travel-item files present when disabled");
 console.log("\n=== travel: enter + rescue ===");
 console.log(tvEnter?.contents + "\n---\n" + tvResc?.contents);
@@ -1280,7 +1280,7 @@ function audit(where: string, files: GeneratedFile[], ok: boolean) {
   const bare = newTravelConfig(48); bare.title = "Bare"; bare.forceload = false; bare.giveTravelItem = false; bare.arrival = { slowFalling: false, resistance: false, seconds: 5 };
   const bareR = generateTravel(bare); audit("travel/bare", bareR.bundle.files, bareR.validation.ok);
   // forceload + travel item are stripped; rescue still gives effects on purpose, and enter must NOT
-  if (bareR.bundle.files.some((f) => /forceload|travel_use|use_travel|give_travel_item/.test(f.path) || /forceload/.test(f.contents))) errors.push("audit travel/bare: forceload/item still present");
+  if (bareR.bundle.files.some((f) => /forceload|travel_use|use_travel|give_travel_item/.test(f.path) || (f.path.endsWith(".mcfunction") && /forceload/.test(f.contents)))) errors.push("audit travel/bare: forceload/item still present");
   if (/effect give/.test(bareR.bundle.files.find((f) => f.path.endsWith("/travel/enter.mcfunction"))!.contents)) errors.push("audit travel/bare: enter should have no arrival effects when both are off");
 }
 // mystery: single step, reveal-tasks, empty clue, quotes in clue (escaping)
@@ -1310,6 +1310,82 @@ for (const junk of [null, undefined, 42, "string", [], { presetId: "nope" }, { o
     errors.push(`audit portable/junk: threw on ${JSON.stringify(junk)}: ${(e as Error).message}`);
   }
 }
+
+// === Round-trippable config: export/import for every other generator ===
+import { toPortableSafari, fromPortableSafari, normalizeSafariConfig, SAFARI_PORTABLE_TYPE } from "../src/lib/safari/portable";
+import { fromPortableCrate, normalizeCrateConfig, CRATE_PORTABLE_TYPE } from "../src/lib/crate/portable";
+import { fromPortableBingo, normalizeBingoConfig, BINGO_PORTABLE_TYPE } from "../src/lib/bingo/portable";
+import { fromPortableItems, normalizeItemConfig, ITEM_PORTABLE_TYPE } from "../src/lib/item/portable";
+import { fromPortableQuest, normalizeQuestConfig, QUEST_PORTABLE_TYPE } from "../src/lib/quest/portable";
+import { fromPortableBattle, normalizeBattleConfig, BATTLE_PORTABLE_TYPE } from "../src/lib/battle/portable";
+import { fromPortableTower, normalizeTowerConfig, TOWER_PORTABLE_TYPE } from "../src/lib/battle/towerPortable";
+import { fromPortableBounty, normalizeBountyConfig, BOUNTY_PORTABLE_TYPE } from "../src/lib/bounty/portable";
+import { fromPortableEscalation, normalizeEscalationConfig, ESCALATION_PORTABLE_TYPE } from "../src/lib/escalation/portable";
+import { fromPortableTeams, normalizeTeamsConfig, TEAMS_PORTABLE_TYPE } from "../src/lib/teams/portable";
+import { fromPortableLeaderboard, normalizeLeaderboardConfig, LEADERBOARD_PORTABLE_TYPE } from "../src/lib/leaderboard/portable";
+import { fromPortableTravel, normalizeTravelConfig, TRAVEL_PORTABLE_TYPE } from "../src/lib/travel/portable";
+import { fromPortableMystery, normalizeMysteryConfig, MYSTERY_PORTABLE_TYPE } from "../src/lib/mystery/portable";
+
+// also exercise a toPortable directly so the embed path is covered both ways
+if (!toPortableSafari(configFromSafariTheme("haunted-woods")).includes(SAFARI_PORTABLE_TYPE)) errors.push("portable/safari: toPortable missing type marker");
+
+interface RTCase {
+  name: string;
+  sidecar: string;
+  marker: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  config: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  gen: (c: any) => GeneratedFile[];
+  from: (t: string) => unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  norm: (input: unknown) => any;
+}
+
+const rtCases: RTCase[] = [
+  { name: "safari", sidecar: "safari_config.json", marker: SAFARI_PORTABLE_TYPE, config: configFromSafariTheme("haunted-woods"), gen: (c) => generateSafari(c).bundle.files, from: fromPortableSafari, norm: normalizeSafariConfig },
+  { name: "crate", sidecar: "crate_config.json", marker: CRATE_PORTABLE_TYPE, config: configFromCratePreset("safari-crate"), gen: (c) => generateCrate(c).bundle.files, from: fromPortableCrate, norm: normalizeCrateConfig },
+  { name: "bingo", sidecar: "bingo_config.json", marker: BINGO_PORTABLE_TYPE, config: newBingoConfig(48), gen: (c) => generateBingo(c).bundle.files, from: fromPortableBingo, norm: normalizeBingoConfig },
+  { name: "items", sidecar: "items_config.json", marker: ITEM_PORTABLE_TYPE, config: normalizeItemConfig({ title: "RT Items" }), gen: (c) => generateItems(c).bundle.files, from: fromPortableItems, norm: normalizeItemConfig },
+  { name: "questline", sidecar: "questline_config.json", marker: QUEST_PORTABLE_TYPE, config: normalizeQuestConfig({ title: "RT Quest" }), gen: (c) => generateQuestline(c).bundle.files, from: fromPortableQuest, norm: normalizeQuestConfig },
+  { name: "battle", sidecar: "battle_config.json", marker: BATTLE_PORTABLE_TYPE, config: normalizeBattleConfig({ title: "RT Battle" }), gen: (c) => generateBattleFactory(c).bundle.files, from: fromPortableBattle, norm: normalizeBattleConfig },
+  { name: "tower", sidecar: "tower_config.json", marker: TOWER_PORTABLE_TYPE, config: normalizeTowerConfig({ title: "RT Tower" }), gen: (c) => generateBattleTower(c).bundle.files, from: fromPortableTower, norm: normalizeTowerConfig },
+  { name: "bounty", sidecar: "bounty_config.json", marker: BOUNTY_PORTABLE_TYPE, config: normalizeBountyConfig({ title: "RT Bounty" }), gen: (c) => generateBountyBoard(c).bundle.files, from: fromPortableBounty, norm: normalizeBountyConfig },
+  { name: "escalation", sidecar: "escalation_config.json", marker: ESCALATION_PORTABLE_TYPE, config: newEscalationConfig(48), gen: (c) => generateEscalation(c).bundle.files, from: fromPortableEscalation, norm: normalizeEscalationConfig },
+  { name: "teams", sidecar: "teams_config.json", marker: TEAMS_PORTABLE_TYPE, config: newTeamsConfig(48), gen: (c) => generateTeams(c).bundle.files, from: fromPortableTeams, norm: normalizeTeamsConfig },
+  { name: "leaderboard", sidecar: "leaderboard_config.json", marker: LEADERBOARD_PORTABLE_TYPE, config: newLeaderboardConfig(48), gen: (c) => generateLeaderboard(c).bundle.files, from: fromPortableLeaderboard, norm: normalizeLeaderboardConfig },
+  { name: "travel", sidecar: "travel_config.json", marker: TRAVEL_PORTABLE_TYPE, config: newTravelConfig(48), gen: (c) => generateTravel(c).bundle.files, from: fromPortableTravel, norm: normalizeTravelConfig },
+  { name: "mystery", sidecar: "mystery_config.json", marker: MYSTERY_PORTABLE_TYPE, config: newMysteryConfig(48), gen: (c) => generateMystery(c).bundle.files, from: fromPortableMystery, norm: normalizeMysteryConfig },
+];
+
+const stripCfg = (files: GeneratedFile[], sidecar: string) =>
+  files.filter((f) => f.path !== sidecar).map((f) => f.path + "::" + f.contents).sort().join("\n");
+
+for (const rt of rtCases) {
+  const files = rt.gen(rt.config);
+  const sc = files.find((f) => f.path === rt.sidecar);
+  if (!sc) { errors.push(`portable/${rt.name}: bundle missing ${rt.sidecar} side-car`); continue; }
+  try { JSON.parse(sc.contents); } catch { errors.push(`portable/${rt.name}: side-car is not valid JSON`); continue; }
+  const parsed = JSON.parse(sc.contents) as { _type?: string };
+  if (parsed._type !== rt.marker) errors.push(`portable/${rt.name}: side-car missing/wrong type marker`);
+  // round-trip: re-import the embedded side-car and regenerate → identical datapack
+  if (stripCfg(rt.gen(rt.from(sc.contents)), rt.sidecar) !== stripCfg(files, rt.sidecar)) errors.push(`portable/${rt.name}: re-imported config does not regenerate identically`);
+  // a BARE (unwrapped) config imports too
+  if (stripCfg(rt.gen(rt.from(JSON.stringify(rt.config))), rt.sidecar) !== stripCfg(files, rt.sidecar)) errors.push(`portable/${rt.name}: bare-config import did not round-trip`);
+  // a wrapper from a DIFFERENT generator is rejected loudly (no silent cross-import)
+  let crossThrew = false;
+  try { rt.from(JSON.stringify({ _type: "cobbleverse-event-forge/not-a-real-kind", version: 1, config: {} })); } catch { crossThrew = true; }
+  if (!crossThrew) errors.push(`portable/${rt.name}: should reject a wrapper from a different generator`);
+  // bad JSON throws
+  let badThrew = false;
+  try { rt.from("{not json"); } catch { badThrew = true; }
+  if (!badThrew) errors.push(`portable/${rt.name}: should throw on bad JSON`);
+  // normalize survives hostile input and the result is still generatable
+  for (const junk of [null, undefined, 42, "string", [], { title: 123 }] as unknown[]) {
+    try { rt.gen(rt.norm(junk)); } catch (e) { errors.push(`portable/${rt.name}: normalize(junk) broke generation for ${JSON.stringify(junk)}: ${(e as Error).message}`); }
+  }
+}
+console.log(`\n=== portable round-trip: ${rtCases.length} generators export/import cleanly ===`);
 
 if (errors.length) {
   console.error("\nSMOKE FAILED:\n" + errors.map((e) => " - " + e).join("\n"));

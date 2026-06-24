@@ -1,4 +1,5 @@
 import type { Bundle, GeneratedFile } from "../datapack/types";
+import { toPortableBingo } from "./portable";
 import type { ValidationResult } from "../datapack/validate";
 import type { BingoConfig } from "./board";
 import { centerIndex, bingoLines } from "./board";
@@ -157,6 +158,8 @@ export function generateBingo(config: BingoConfig): BingoGenerateResult {
 
   // side-car: a printable board
   files.push(buildBoardSheet(config, center));
+  // re-importable snapshot of this board — drop it back into the page to edit/re-run later
+  files.push({ path: "bingo_config.json", contents: toPortableBingo(config), kind: "readme", label: "bingo_config.json" });
 
   return {
     bundle: { slug, title: config.title, namespace: ns, packFormat: config.packFormat, files },

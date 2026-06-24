@@ -1,4 +1,5 @@
 import type { Bundle, GeneratedFile } from "../datapack/types";
+import { toPortableMystery } from "./portable";
 import type { ValidationResult } from "../datapack/validate";
 import type { MysteryConfig, MysteryStep } from "./types";
 import { toId, toNamespace } from "../datapack/sanitize";
@@ -137,6 +138,8 @@ export function generateMystery(config: MysteryConfig): MysteryResult {
   files.push(buildOutline(config, slug, ns));
   files.push(buildChecklist(config, ns, slug));
   files.push(buildDiscord(config));
+  // re-importable snapshot of this hunt — drop it back into the page to edit/re-run later
+  files.push({ path: "mystery_config.json", contents: toPortableMystery(config), kind: "readme", label: "mystery_config.json" });
 
   const validation = validateDatapack(files);
   const bundle: Bundle = { slug, title: config.title, namespace: ns, packFormat: config.packFormat, files };

@@ -11,6 +11,8 @@ import { zipDatapack, zipAll } from "@/lib/datapack/zip";
 import { DATAPACK_KINDS } from "@/lib/datapack/types";
 import { downloadZip, downloadText } from "@/lib/download";
 import RewardList, { SharedDatalists } from "@/app/components/RewardList";
+import ConfigPortIO from "@/app/components/ConfigPortIO";
+import { toPortableEscalation, fromPortableEscalation } from "@/lib/escalation/portable";
 
 const COUNT_TRIGGERS = TRIGGERS.filter((t) => t.usesCount);
 
@@ -41,8 +43,21 @@ export default function EscalationPage() {
     <div className="px-6 py-8">
       <SharedDatalists />
       <header className="mb-6">
-        <div className="chip mb-3">✦ Escalation Stages</div>
-        <h1 className="text-2xl font-bold text-slate-100">Build a multi-phase event</h1>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="chip mb-3">✦ Escalation Stages</div>
+            <h1 className="text-2xl font-bold text-slate-100">Build a multi-phase event</h1>
+          </div>
+          <ConfigPortIO
+            config={config}
+            filename={`${result.bundle.slug}.escalation.json`}
+            toPortable={toPortableEscalation}
+            fromPortable={fromPortableEscalation}
+            onImport={(c) => { setConfig(c); setActiveFile(""); }}
+            exportDisabled={!config.title}
+            hint="Export this event as JSON, or import a saved one (or the escalation_config.json from a downloaded bundle) to edit & re-run."
+          />
+        </div>
         <p className="mt-1 text-sm text-slate-400">
           A server-wide story that escalates as everyone plays. The whole server contributes toward each stage&apos;s goal;
           reaching it announces the next stage and fires its effects (spawn bursts, rewards). The last stage is the finale.

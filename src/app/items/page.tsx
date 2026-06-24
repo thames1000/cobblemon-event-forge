@@ -8,6 +8,8 @@ import { MC_VERSIONS } from "@/lib/datapack/packMeta";
 import { zipDatapack, zipAll } from "@/lib/datapack/zip";
 import { DATAPACK_KINDS } from "@/lib/datapack/types";
 import { downloadZip, downloadText } from "@/lib/download";
+import ConfigPortIO from "@/app/components/ConfigPortIO";
+import { toPortableItems, fromPortableItems } from "@/lib/item/portable";
 
 const COLOR_HEX: Record<string, string> = {
   black: "#000000", dark_blue: "#0000AA", dark_green: "#00AA00", dark_aqua: "#00AAAA", dark_red: "#AA0000",
@@ -267,7 +269,18 @@ export default function Page() {
     <div className="px-6 py-8">
       <header className="mb-6">
         <div className="chip mb-3">🏷️ Item Designer</div>
-        <h1 className="text-2xl font-bold text-slate-100">Design Custom Items</h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-2xl font-bold text-slate-100">Design Custom Items</h1>
+          <ConfigPortIO
+            config={config}
+            filename={`${result.bundle.slug}.items.json`}
+            toPortable={toPortableItems}
+            fromPortable={fromPortableItems}
+            onImport={(c) => { setConfig(c); setActiveFile(""); }}
+            exportDisabled={!config.title}
+            hint="Export this item collection as JSON, or import a saved one (or the items_config.json from a downloaded bundle) to edit & re-run."
+          />
+        </div>
         <p className="mt-1 text-sm text-slate-400">
           Named/lore items on any base item — name &amp; lore (with formatting + colours), rarity, glint, enchantments, attribute
           modifiers, model data, custom data, heads &amp; more. Copy the <code>/give</code> or download a datapack of give functions.

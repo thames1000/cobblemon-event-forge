@@ -8,6 +8,8 @@ import { MC_VERSIONS, DEFAULT_VERSION } from "@/lib/datapack/packMeta";
 import { zipDatapack, zipAll } from "@/lib/datapack/zip";
 import { DATAPACK_KINDS } from "@/lib/datapack/types";
 import { downloadZip, downloadText } from "@/lib/download";
+import ConfigPortIO from "@/app/components/ConfigPortIO";
+import { toPortableTravel, fromPortableTravel } from "@/lib/travel/portable";
 
 export default function TravelPage() {
   const [config, setConfig] = useState<TravelConfig>(() => newTravelConfig(DEFAULT_VERSION.packFormat));
@@ -39,8 +41,21 @@ export default function TravelPage() {
   return (
     <div className="px-6 py-8">
       <header className="mb-6">
-        <div className="chip mb-3">🧭 Safe Travel</div>
-        <h1 className="text-2xl font-bold text-slate-100">Build a safe-teleport helper</h1>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="chip mb-3">🧭 Safe Travel</div>
+            <h1 className="text-2xl font-bold text-slate-100">Build a safe-teleport helper</h1>
+          </div>
+          <ConfigPortIO
+            config={config}
+            filename={`${result.bundle.slug}.travel.json`}
+            toPortable={toPortableTravel}
+            fromPortable={fromPortableTravel}
+            onImport={(c) => { setConfig(c); setActiveFile(""); }}
+            exportDisabled={!config.title}
+            hint="Export this travel pack as JSON, or import a saved one (or the travel_config.json from a downloaded bundle) to edit & re-run."
+          />
+        </div>
         <p className="mt-1 text-sm text-slate-400">
           Move players to an event area and back without desync, fall damage, or falling through unloaded chunks. Generates
           enter/exit/rescue functions, arrival protection, an optional travel item, and force-loads the destination pad. Tick-free.

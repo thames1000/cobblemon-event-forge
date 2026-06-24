@@ -1,5 +1,6 @@
 import type { Bundle, GeneratedFile } from "../datapack/types";
 import type { ValidationResult } from "../datapack/validate";
+import { toPortableQuest } from "./portable";
 import type { Quest, QuestConfig, QuestTask } from "./types";
 import { toId, toNamespace } from "../datapack/sanitize";
 import { buildPackMeta } from "../datapack/packMeta";
@@ -275,6 +276,8 @@ export function generateQuestline(config: QuestConfig): QuestGenerateResult {
   const validation = validateDatapack(datapackFiles);
   const datapackFileName = `${slug}.zip`;
   sideCars.push(buildQuestText(config), buildChecklist(config, ns, slug, validation));
+  // re-importable snapshot of this questline — drop it back into the page to edit/re-run later
+  sideCars.push({ path: "questline_config.json", contents: toPortableQuest(config), kind: "readme", label: "questline_config.json" });
 
   return {
     bundle: { slug, title: config.title, namespace: ns, packFormat: config.packFormat, files: [...datapackFiles, ...sideCars] },

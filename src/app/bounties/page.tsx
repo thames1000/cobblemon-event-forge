@@ -14,6 +14,8 @@ import { DATAPACK_KINDS } from "@/lib/datapack/types";
 import { downloadZip, downloadText } from "@/lib/download";
 import ObjectiveEditor from "@/app/components/ObjectiveEditor";
 import RewardList, { SharedDatalists } from "@/app/components/RewardList";
+import ConfigPortIO from "@/app/components/ConfigPortIO";
+import { toPortableBounty, fromPortableBounty } from "@/lib/bounty/portable";
 
 const DEFAULT_CONFIG: BountyConfig = {
   title: "Weekly Bounties",
@@ -88,13 +90,27 @@ export default function Page() {
     <div className="px-6 py-8">
       <SharedDatalists />
 
-      <header className="mb-6">
-        <div className="chip mb-3">📋 Bounty Board</div>
-        <h1 className="text-2xl font-bold text-slate-100">Build a Bounty Board</h1>
-        <p className="mt-1 text-sm text-slate-400">
-          Daily / weekly / special <b>contracts</b> that auto-complete in-game, plus <b>community goals</b> (everyone pitches in → everyone
-          wins). Players check progress with a reusable Bounty Board item.
-        </p>
+      <header className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <div className="chip mb-3">📋 Bounty Board</div>
+          <h1 className="text-2xl font-bold text-slate-100">Build a Bounty Board</h1>
+          <p className="mt-1 text-sm text-slate-400">
+            Daily / weekly / special <b>contracts</b> that auto-complete in-game, plus <b>community goals</b> (everyone pitches in → everyone
+            wins). Players check progress with a reusable Bounty Board item.
+          </p>
+        </div>
+        <ConfigPortIO
+          config={config}
+          filename={`${result.bundle.slug}.bounty.json`}
+          toPortable={toPortableBounty}
+          fromPortable={fromPortableBounty}
+          onImport={(c) => {
+            setConfig(c);
+            setActiveFile("");
+          }}
+          exportDisabled={!config.title}
+          hint="Export this board as JSON, or import a saved one (or the bounty_config.json from a downloaded bundle) to edit & re-run."
+        />
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">

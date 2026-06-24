@@ -11,6 +11,8 @@ import { zipDatapack, zipAll } from "@/lib/datapack/zip";
 import { DATAPACK_KINDS } from "@/lib/datapack/types";
 import { downloadZip, downloadText } from "@/lib/download";
 import RewardList, { SharedDatalists } from "@/app/components/RewardList";
+import ConfigPortIO from "@/app/components/ConfigPortIO";
+import { toPortableTeams, fromPortableTeams } from "@/lib/teams/portable";
 import type { Objective } from "@/lib/objective/types";
 
 export default function TeamsPage() {
@@ -64,7 +66,18 @@ export default function TeamsPage() {
       <SharedDatalists />
       <header className="mb-6">
         <div className="chip mb-3">🚩 Team vs Team</div>
-        <h1 className="text-2xl font-bold text-slate-100">Build a team competition</h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-2xl font-bold text-slate-100">Build a team competition</h1>
+          <ConfigPortIO
+            config={config}
+            filename={`${result.bundle.slug}.teams.json`}
+            toPortable={toPortableTeams}
+            fromPortable={fromPortableTeams}
+            onImport={(c) => { setConfig(c); setActiveFile(""); }}
+            exportDisabled={!config.title}
+            hint="Export this event as JSON, or import a saved one (or the teams_config.json from a downloaded bundle) to edit & re-run."
+          />
+        </div>
         <p className="mt-1 text-sm text-slate-400">
           Players self-pick a side with a join item (or get randomly shuffled). Catches, battles, and milestone goals
           all score points; the leader shows live on a sidebar. Tick-free — runs on Cobblemon advancements + vanilla teams.

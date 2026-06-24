@@ -1,4 +1,5 @@
 import type { Bundle, GeneratedFile } from "../datapack/types";
+import { toPortableCrate } from "./portable";
 import type { ValidationResult } from "../datapack/validate";
 import type { CrateConfig } from "./types";
 import { toId, toNamespace } from "../datapack/sanitize";
@@ -48,7 +49,11 @@ export function generateCrate(config: CrateConfig): CrateGenerateResult {
 
   const validation = validateDatapack(datapackFiles);
 
-  const sideCars: GeneratedFile[] = [buildCrateSummary({ config, namespace, slug })];
+  const sideCars: GeneratedFile[] = [
+    buildCrateSummary({ config, namespace, slug }),
+    // re-importable snapshot of this crate — drop it back into the page to edit/re-run later
+    { path: "crate_config.json", contents: toPortableCrate(config), kind: "readme", label: "crate_config.json" },
+  ];
 
   const bundle: Bundle = {
     slug,

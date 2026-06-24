@@ -11,6 +11,8 @@ import { zipDatapack, zipAll } from "@/lib/datapack/zip";
 import { DATAPACK_KINDS } from "@/lib/datapack/types";
 import { downloadZip, downloadText } from "@/lib/download";
 import RewardList, { SharedDatalists } from "@/app/components/RewardList";
+import ConfigPortIO from "@/app/components/ConfigPortIO";
+import { toPortableMystery, fromPortableMystery } from "@/lib/mystery/portable";
 
 const COUNT_TRIGGERS = TRIGGERS.filter((t) => t.usesCount);
 
@@ -40,14 +42,25 @@ export default function MysteryPage() {
   return (
     <div className="px-6 py-8">
       <SharedDatalists />
-      <header className="mb-6">
-        <div className="chip mb-3">🔮 Mystery Hunt</div>
-        <h1 className="text-2xl font-bold text-slate-100">Build a clue chain</h1>
-        <p className="mt-1 text-sm text-slate-400">
+      <header className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <div className="chip mb-3">🔮 Mystery Hunt</div>
+          <h1 className="text-2xl font-bold text-slate-100">Build a clue chain</h1>
+          <p className="mt-1 text-sm text-slate-400">
           A per-player chain of cryptic steps. Players only see the clue for the step they&apos;re on — the real task is
           hidden until they solve it, which reveals it, drops a reward, and unlocks the next clue. Great for legendary hunts.
           Tick-free.
-        </p>
+          </p>
+        </div>
+        <ConfigPortIO
+          config={config}
+          filename={`${result.bundle.slug}.mystery.json`}
+          toPortable={toPortableMystery}
+          fromPortable={fromPortableMystery}
+          onImport={(c) => { setConfig(c); setActiveFile(""); }}
+          exportDisabled={!config.title}
+          hint="Export this hunt as JSON, or import a saved one (or the mystery_config.json from a downloaded bundle) to edit & re-run."
+        />
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">

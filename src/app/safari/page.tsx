@@ -9,6 +9,8 @@ import { zipDatapack, zipAll } from "@/lib/datapack/zip";
 import { DATAPACK_KINDS } from "@/lib/datapack/types";
 import { downloadZip, downloadText } from "@/lib/download";
 import RewardList, { SharedDatalists } from "@/app/components/RewardList";
+import ConfigPortIO from "@/app/components/ConfigPortIO";
+import { toPortableSafari, fromPortableSafari } from "@/lib/safari/portable";
 import type { SafariConfig } from "@/lib/safari/types";
 import type { WeatherTheme } from "@/lib/event/types";
 
@@ -106,12 +108,28 @@ export default function SafariPage() {
       </datalist>
 
       <header className="mb-6">
-        <div className="chip mb-3">🏕️ Safari Zones</div>
-        <h1 className="text-2xl font-bold text-slate-100">Build a Safari Zone</h1>
-        <p className="mt-1 text-sm text-slate-400">
-          A themed temporary zone: tiered spawns (optionally biome-locked), an entry ticket, a catch reward, plus rules,
-          NPC dialogue, sign &amp; announcement text. Swap it in for the weekend, then remove it.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="chip mb-3">🏕️ Safari Zones</div>
+            <h1 className="text-2xl font-bold text-slate-100">Build a Safari Zone</h1>
+            <p className="mt-1 text-sm text-slate-400">
+              A themed temporary zone: tiered spawns (optionally biome-locked), an entry ticket, a catch reward, plus rules,
+              NPC dialogue, sign &amp; announcement text. Swap it in for the weekend, then remove it.
+            </p>
+          </div>
+          <ConfigPortIO
+            config={config}
+            filename={`${result.bundle.slug}.safari.json`}
+            toPortable={toPortableSafari}
+            fromPortable={fromPortableSafari}
+            onImport={(c) => {
+              setConfig(c);
+              setActiveFile("");
+            }}
+            exportDisabled={!config.title}
+            hint="Export this safari as JSON, or import a saved one (or the safari_config.json from a downloaded bundle) to edit & re-run."
+          />
+        </div>
       </header>
 
       {/* theme picker */}
