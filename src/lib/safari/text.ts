@@ -104,6 +104,14 @@ export function buildSafariChecklist(opts: {
   }
   L.push("");
 
+  L.push("FIXED IDENTITY (for the Safari Catch Boost mod)");
+  L.push(`  - Every Safari pack uses the SAME namespace "${namespace}", arena dimension`);
+  L.push(`    "${namespace}:zone", and file name "${opts.datapackFileName}" — no matter the theme.`);
+  L.push(`  - So the catch-boost mod config stays "dimensions": ["${namespace}:zone"] forever.`);
+  L.push(`  - Run ONE Safari at a time: to switch themes, remove the old ${opts.datapackFileName}`);
+  L.push(`    and drop in the new one (same name). Two Safari packs at once would collide.`);
+  L.push("");
+
   L.push("SETUP");
   let s = 1;
   L.push(`  ${s++}. Upload ${opts.datapackFileName} to <server>/world/datapacks/.`);

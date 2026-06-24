@@ -59,7 +59,7 @@ Edit `config/safari_catch_boost.json` and restart (or it's read on each server s
 {
   "multiplier": 3.0,
   "onlySafariBall": true,
-  "dimensions": ["haunted_safari:zone"],
+  "dimensions": ["safari_zone:zone"],
   "debug": false
 }
 ```
@@ -67,10 +67,12 @@ Edit `config/safari_catch_boost.json` and restart (or it's read on each server s
 - **`multiplier`** — how much to scale the catch rate inside a zone.
 - **`onlySafariBall`** — `true` boosts only Safari Balls (recommended; stops players
   cheesing the zone with Master Balls). `false` boosts every ball.
-- **`dimensions`** — the arena dimension id(s) to boost in. This is
-  `"<namespace>:zone"`, where `<namespace>` is the datapack namespace the Safari
-  Forge generated (the same id you'd see in `/datapack list` and in
-  `<world>/dimensions/<namespace>/zone/`). Add one entry per active Safari pack.
+- **`dimensions`** — the arena dimension id(s) to boost in. The Event Forge Safari
+  generator uses a **fixed identity** for every theme, so this is **always
+  `"safari_zone:zone"`** — set it once and never touch it again, regardless of which
+  Safari theme you generate. (Every Safari pack is named `safari_zone.zip` and shares
+  the `safari_zone` namespace, so you run one at a time, swapping the zip to change
+  themes; the default above already targets it.)
 - **`debug`** — log each boosted throw (`catchRate before -> after`) to verify it's firing.
 
 ## Verify it's working

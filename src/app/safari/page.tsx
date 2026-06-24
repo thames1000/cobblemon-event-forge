@@ -145,7 +145,10 @@ export default function SafariPage() {
                 <label className="field-label">Zone name</label>
                 <input className="input" value={config.title} placeholder="Haunted Woods Safari" onChange={(e) => patch({ title: e.target.value })} />
                 <p className="mt-1.5 text-xs text-slate-500">
-                  namespace <code className="text-amber-300">{result.bundle.namespace}</code>
+                  Display only. Every Safari ships as a fixed <code className="text-amber-300">{result.datapackFileName}</code>{" "}
+                  (namespace <code className="text-amber-300">{result.bundle.namespace}</code>, dim{" "}
+                  <code className="text-amber-300">{result.bundle.namespace}:zone</code>) so the catch-boost mod never needs
+                  reconfiguring — run one Safari at a time.
                 </p>
               </div>
               <div>

@@ -359,18 +359,18 @@ for (const f of sfres.bundle.files) {
 // exclusive (default) gates the featured spawns on the resource-world DIMENSION (robust
 // against the custom biome not surviving the mod's mirror), not on the biome
 const gastly = sfres.bundle.files.find((f) => f.path.endsWith("spawn_pool_world/gastly.json"));
-if (gastly && !/"dimensions"\s*:\s*\[\s*"resource_world:haunted_woods_safari"/.test(gastly.contents))
+if (gastly && !/"dimensions"\s*:\s*\[\s*"resource_world:safari_zone"/.test(gastly.contents))
   errors.push("safari: exclusive spawn not conditioned to the arena dimension");
 if (gastly && /"biomes"/.test(gastly.contents)) errors.push("safari: exclusive spawn should not use a biome condition");
 // entry ticket: advancement + give + enter
-if (!sfres.bundle.files.some((f) => f.path.endsWith("/advancement/use_haunted_woods_safari.json"))) errors.push("safari: missing ticket advancement");
-const enterFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/enter_haunted_woods_safari.mcfunction"));
+if (!sfres.bundle.files.some((f) => f.path.endsWith("/advancement/use_safari_zone.json"))) errors.push("safari: missing ticket advancement");
+const enterFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/enter_safari_zone.mcfunction"));
 if (!enterFn || !enterFn.contents.includes("Welcome to the")) errors.push("safari: missing/empty enter function");
 const giveTicket = sfres.bundle.files.find((f) => /give_.*_ticket\.mcfunction$/.test(f.path));
-if (!giveTicket || !/give @s minecraft:name_tag\[.*safari:"haunted_woods_safari"/.test(giveTicket.contents)) errors.push("safari: ticket give command wrong");
+if (!giveTicket || !/give @s minecraft:name_tag\[.*safari:"safari_zone"/.test(giveTicket.contents)) errors.push("safari: ticket give command wrong");
 // per-visit catch bounty: a COUNT-LESS catch advancement (an event, not a cumulative
 // milestone) feeds a tick that counts only in-zone catches and re-arms itself
-const catchAdv = sfres.bundle.files.find((f) => f.path.endsWith("/advancement/catch_haunted_woods_safari.json"));
+const catchAdv = sfres.bundle.files.find((f) => f.path.endsWith("/advancement/catch_safari_zone.json"));
 if (!catchAdv) errors.push("safari: missing catch-bounty advancement");
 else {
   const d = JSON.parse(catchAdv.contents);
@@ -378,14 +378,14 @@ else {
   if (d.criteria?.caught?.conditions?.type !== "ghost") errors.push("safari: catch bounty wrong type");
   if (d.criteria?.caught?.conditions?.count != null) errors.push("safari: catch bounty must be count-less (cumulative count re-fires on revoke)");
 }
-const catchTick = sfres.bundle.files.find((f) => f.path.endsWith("/function/catch_tick_haunted_woods_safari.mcfunction"));
-if (!catchTick || !/tag=haunted_woods_safari_inzone\] run scoreboard players add @s safari_caught 1/.test(catchTick.contents))
+const catchTick = sfres.bundle.files.find((f) => f.path.endsWith("/function/catch_tick_safari_zone.mcfunction"));
+if (!catchTick || !/tag=safari_zone_inzone\] run scoreboard players add @s safari_caught 1/.test(catchTick.contents))
   errors.push("safari: catch tick doesn't count in-zone catches");
-if (catchTick && !/advancement revoke @s only haunted_woods_safari:catch_haunted_woods_safari/.test(catchTick.contents))
+if (catchTick && !/advancement revoke @s only safari_zone:catch_safari_zone/.test(catchTick.contents))
   errors.push("safari: catch tick doesn't re-arm the advancement");
-const rewardFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/reward_haunted_woods_safari.mcfunction"));
+const rewardFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/reward_safari_zone.mcfunction"));
 if (!rewardFn || !/scoreboard players set @s safari_caught 0/.test(rewardFn.contents)) errors.push("safari: reward doesn't reset the per-visit counter");
-if (enterFn && !(/scoreboard players set @s safari_caught 0/.test(enterFn.contents) && /advancement revoke @s only haunted_woods_safari:catch_haunted_woods_safari/.test(enterFn.contents)))
+if (enterFn && !(/scoreboard players set @s safari_caught 0/.test(enterFn.contents) && /advancement revoke @s only safari_zone:catch_safari_zone/.test(enterFn.contents)))
   errors.push("safari: enter doesn't arm the catch bounty");
 // side-cars present
 for (const p of ["safari_rules.txt", "npc_dialogue.txt", "sign_text.txt", "discord_announcement.md", "admin_checklist.txt"]) {
@@ -396,7 +396,7 @@ const dim = sfres.bundle.files.find((f) => f.path.endsWith("/dimension/zone.json
 if (!dim) errors.push("safari: missing arena dimension");
 if (dim) {
   const d = JSON.parse(dim.contents);
-  if (d.generator?.biome_source?.type !== "minecraft:fixed" || d.generator?.biome_source?.biome !== "haunted_woods_safari:zone_biome")
+  if (d.generator?.biome_source?.type !== "minecraft:fixed" || d.generator?.biome_source?.biome !== "safari_zone:zone_biome")
     errors.push("safari: exclusive arena should use the custom biome source");
 }
 // exclusive custom biome: copies the dark_forest LOOK (effects + vegetation) but has
@@ -415,15 +415,15 @@ else {
 // The mod owns the world lifecycle (create/reset) but never the teleport. create_arena
 // mirrors :zone into the resettable resource world; reset_zone wipes it live.
 const createArena = sfres.bundle.files.find((f) => f.path.endsWith("/function/create_arena.mcfunction"));
-if (!createArena || !/resourceworld create haunted_woods_safari mirror haunted_woods_safari:zone/.test(createArena.contents))
+if (!createArena || !/resourceworld create safari_zone mirror safari_zone:zone/.test(createArena.contents))
   errors.push("safari: create_arena doesn't mirror :zone into the resource world");
-const resetZone = sfres.bundle.files.find((f) => f.path.endsWith("/function/reset_zone_haunted_woods_safari.mcfunction"));
-if (!resetZone || !/resourceworld reset haunted_woods_safari/.test(resetZone.contents))
+const resetZone = sfres.bundle.files.find((f) => f.path.endsWith("/function/reset_zone_safari_zone.mcfunction"));
+if (!resetZone || !/resourceworld reset safari_zone/.test(resetZone.contents))
   errors.push("safari: reset_zone doesn't run resourceworld reset");
 // reset is a MANUAL admin command, guarded so it won't wipe the world while players are inside
-if (resetZone && !/unless entity @a\[tag=haunted_woods_safari_inzone\] run resourceworld reset/.test(resetZone.contents))
+if (resetZone && !/unless entity @a\[tag=safari_zone_inzone\] run resourceworld reset/.test(resetZone.contents))
   errors.push("safari: reset_zone isn't guarded against resetting while occupied");
-if (sfres.bundle.files.some((f) => f.path.endsWith("/function/reset_watch_haunted_woods_safari.mcfunction")))
+if (sfres.bundle.files.some((f) => f.path.endsWith("/function/reset_watch_safari_zone.mcfunction")))
   errors.push("safari: stray auto-reset watcher (reset should be manual)");
 // non-exclusive falls back to the themed vanilla biome + spawn tags, and emits no custom biome
 const themed = generateSafari({ ...safari, arena: { ...safari.arena, exclusive: false } });
@@ -434,7 +434,7 @@ if (themed.bundle.files.some((f) => f.path.endsWith("/worldgen/biome/zone_biome.
 // spawns are never gated by biome or weather (any biome, any weather, always); with an
 // arena they're dimension-locked, and the condition must carry no biome/weather keys
 const themedGastly = themed.bundle.files.find((f) => f.path.endsWith("spawn_pool_world/gastly.json"));
-if (themedGastly && !/"dimensions"\s*:\s*\[\s*"resource_world:haunted_woods_safari"/.test(themedGastly.contents))
+if (themedGastly && !/"dimensions"\s*:\s*\[\s*"resource_world:safari_zone"/.test(themedGastly.contents))
   errors.push("safari: spawn not dimension-locked to the arena");
 if (themedGastly && /"biomes"|"isRaining"|"isThundering"|"canSeeSky"/.test(themedGastly.contents))
   errors.push("safari: spawn should not be gated by biome or weather");
@@ -446,44 +446,44 @@ if (!mdim || JSON.parse(mdim.contents).generator?.biome_source?.type !== "minecr
 const uninstall = sfres.bundle.files.find((f) => f.path.endsWith("/function/uninstall.mcfunction"));
 if (!uninstall || !/scoreboard players reset @a safari_time/.test(uninstall.contents)) errors.push("safari: uninstall doesn't reset timer scores");
 // warp IN: enter captures the entry point, then calls warp_<slug> (spreadplayers in the arena dim)
-if (enterFn && !/function haunted_woods_safari:warp_haunted_woods_safari/.test(enterFn.contents)) errors.push("safari: enter doesn't warp into arena");
+if (enterFn && !/function safari_zone:warp_safari_zone/.test(enterFn.contents)) errors.push("safari: enter doesn't warp into arena");
 if (enterFn && !/store result score @s safari_ret_x run data get entity @s Pos\[0\]/.test(enterFn.contents)) errors.push("safari: enter doesn't capture the return point");
-const warpFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/warp_haunted_woods_safari.mcfunction"));
-if (!warpFn || !/execute in resource_world:haunted_woods_safari run spreadplayers .* @s/.test(warpFn.contents))
+const warpFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/warp_safari_zone.mcfunction"));
+if (!warpFn || !/execute in resource_world:safari_zone run spreadplayers .* @s/.test(warpFn.contents))
   errors.push("safari: warp doesn't spreadplayers into the resource-world dim");
 if (warpFn && /\bresourceworld\b/.test(warpFn.contents)) errors.push("safari: warp must use vanilla tp, not a resourceworld command");
 // entry kit: 30 safari balls
 if (enterFn && !/give @s cobblemon:safari_ball 30/.test(enterFn.contents)) errors.push("safari: enter doesn't give 30 safari balls");
 // timer: enter sets 1800s + starts loop; tick warns at 900/300/60 + sends home; load creates objective
 if (enterFn && !/scoreboard players set @s safari_time 1800/.test(enterFn.contents)) errors.push("safari: timer not started on enter (1800s)");
-if (enterFn && !/schedule function haunted_woods_safari:safari_tick 1s replace/.test(enterFn.contents)) errors.push("safari: loop not scheduled on enter");
+if (enterFn && !/schedule function safari_zone:safari_tick 1s replace/.test(enterFn.contents)) errors.push("safari: loop not scheduled on enter");
 const tickFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/safari_tick.mcfunction"));
 if (!tickFn) errors.push("safari: missing safari_tick");
 if (tickFn) {
   for (const s of [900, 300, 60]) if (!new RegExp(`safari_time=${s}\\}`).test(tickFn.contents)) errors.push(`safari: missing ${s}s warning`);
-  if (!/safari_time=0\}.*run function haunted_woods_safari:safari_home/.test(tickFn.contents)) errors.push("safari: tick doesn't send expired players home");
-  if (!/schedule function haunted_woods_safari:safari_tick 1s replace/.test(tickFn.contents)) errors.push("safari: tick doesn't keep the loop alive");
+  if (!/safari_time=0\}.*run function safari_zone:safari_home/.test(tickFn.contents)) errors.push("safari: tick doesn't send expired players home");
+  if (!/schedule function safari_zone:safari_tick 1s replace/.test(tickFn.contents)) errors.push("safari: tick doesn't keep the loop alive");
 }
 // warp BACK: safari_home -> return_<slug> -> do_return macro tp to captured overworld coords
 const homeFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/safari_home.mcfunction"));
-if (!homeFn || !/function haunted_woods_safari:return_haunted_woods_safari/.test(homeFn.contents)) errors.push("safari: safari_home doesn't return the player");
-const retFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/do_return_haunted_woods_safari.mcfunction"));
+if (!homeFn || !/function safari_zone:return_safari_zone/.test(homeFn.contents)) errors.push("safari: safari_home doesn't return the player");
+const retFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/do_return_safari_zone.mcfunction"));
 if (!retFn || !/\$execute in minecraft:overworld run tp @s \$\(x\) \$\(y\) \$\(z\)/.test(retFn.contents)) errors.push("safari: do_return macro tp wrong");
 const loadFnS = sfres.bundle.files.find((f) => f.path.endsWith("/function/load.mcfunction"));
 if (!loadFnS || !/scoreboard objectives add safari_time dummy/.test(loadFnS.contents)) errors.push("safari: load doesn't create the timer objective");
 if (!loadFnS || !/scoreboard objectives add safari_ret_x dummy/.test(loadFnS.contents)) errors.push("safari: load doesn't create the return objective");
 if (!sfres.bundle.files.some((f) => f.path === "data/minecraft/tags/function/load.json")) errors.push("safari: missing load tag");
 // on-screen action-bar timer (default on): tick refreshes it; nothing persistent to clean up
-if (tickFn && !/function haunted_woods_safari:hud_update_haunted_woods_safari/.test(tickFn.contents))
+if (tickFn && !/function safari_zone:hud_update_safari_zone/.test(tickFn.contents))
   errors.push("safari: tick doesn't refresh the action-bar timer");
-if (homeFn && !/tag @s remove haunted_woods_safari_inzone/.test(homeFn.contents))
+if (homeFn && !/tag @s remove safari_zone_inzone/.test(homeFn.contents))
   errors.push("safari: home doesn't remove the inzone tag");
-const hudApply = sfres.bundle.files.find((f) => f.path.endsWith("/function/hud_apply_haunted_woods_safari.mcfunction"));
+const hudApply = sfres.bundle.files.find((f) => f.path.endsWith("/function/hud_apply_safari_zone.mcfunction"));
 if (!hudApply || !/\$title @s actionbar /.test(hudApply.contents))
   errors.push("safari: hud_apply macro doesn't write the action bar");
 if (loadFnS && !/scoreboard objectives add safari_calc dummy/.test(loadFnS.contents)) errors.push("safari: load doesn't create the timer calc objective");
 // the timer loop must be scoped to THIS zone's players so multiple safaris don't cross-talk
-if (tickFn && !/tag=haunted_woods_safari_inzone/.test(tickFn.contents)) errors.push("safari: tick not scoped by inzone tag");
+if (tickFn && !/tag=safari_zone_inzone/.test(tickFn.contents)) errors.push("safari: tick not scoped by inzone tag");
 // the on-screen timer is a transient action bar — nothing should ever create a saved bossbar
 if (sfres.bundle.files.some((f) => /\bbossbar\b/.test(f.contents))) errors.push("safari: uses bossbar (should be a transient action bar)");
 // opt-out: timer.hud === false drops the on-screen timer plumbing
@@ -491,24 +491,24 @@ const noBar = generateSafari({ ...safari, timer: { ...safari.timer, hud: false }
 if (noBar.bundle.files.some((f) => /\/function\/hud_(update|apply)_/.test(f.path)))
   errors.push("safari: hud functions present when on-screen timer disabled");
 // leave-early item (default on): given on entry, advancement reward exits via a non-op function
-if (enterFn && !/give @s minecraft:clock\[.*safari:"haunted_woods_safari_leave"/.test(enterFn.contents))
+if (enterFn && !/give @s minecraft:clock\[.*safari:"safari_zone_leave"/.test(enterFn.contents))
   errors.push("safari: enter doesn't hand out the leave-early item");
-const leaveAdv = sfres.bundle.files.find((f) => f.path.endsWith("/advancement/use_haunted_woods_safari_leave.json"));
+const leaveAdv = sfres.bundle.files.find((f) => f.path.endsWith("/advancement/use_safari_zone_leave.json"));
 if (!leaveAdv) errors.push("safari: missing leave-early advancement");
 else {
   const d = JSON.parse(leaveAdv.contents);
   if (d.criteria?.used?.trigger !== "minecraft:consume_item") errors.push("safari: leave advancement wrong trigger");
-  if (String(d.rewards?.function) !== "haunted_woods_safari:leave_haunted_woods_safari") errors.push("safari: leave advancement wrong reward");
+  if (String(d.rewards?.function) !== "safari_zone:leave_safari_zone") errors.push("safari: leave advancement wrong reward");
 }
-const leaveFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/leave_haunted_woods_safari.mcfunction"));
-if (!leaveFn || !/execute if score @s safari_time matches 1\.\. run function haunted_woods_safari:do_leave_haunted_woods_safari/.test(leaveFn.contents))
+const leaveFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/leave_safari_zone.mcfunction"));
+if (!leaveFn || !/execute if score @s safari_time matches 1\.\. run function safari_zone:do_leave_safari_zone/.test(leaveFn.contents))
   errors.push("safari: leave function doesn't guard on an active session");
-if (leaveFn && !/advancement revoke @s only haunted_woods_safari:use_haunted_woods_safari_leave/.test(leaveFn.contents))
+if (leaveFn && !/advancement revoke @s only safari_zone:use_safari_zone_leave/.test(leaveFn.contents))
   errors.push("safari: leave function doesn't re-arm its advancement");
-const doLeaveFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/do_leave_haunted_woods_safari.mcfunction"));
-if (!doLeaveFn || !/function haunted_woods_safari:return_haunted_woods_safari/.test(doLeaveFn.contents))
+const doLeaveFn = sfres.bundle.files.find((f) => f.path.endsWith("/function/do_leave_safari_zone.mcfunction"));
+if (!doLeaveFn || !/function safari_zone:return_safari_zone/.test(doLeaveFn.contents))
   errors.push("safari: do_leave doesn't return the player home");
-const leaveClear = /clear @s minecraft:clock\[minecraft:custom_data=\{safari:"haunted_woods_safari_leave"\}\]/;
+const leaveClear = /clear @s minecraft:clock\[minecraft:custom_data=\{safari:"safari_zone_leave"\}\]/;
 if (!doLeaveFn || !leaveClear.test(doLeaveFn.contents)) errors.push("safari: do_leave doesn't reclaim the leave item");
 if (homeFn && !leaveClear.test(homeFn.contents)) errors.push("safari: timer home doesn't reclaim the leave item");
 // opt-out: leaveEarly === false drops the item + its functions
@@ -522,6 +522,18 @@ console.log(tickFn?.contents);
 const noArena = generateSafari({ ...safari, arena: { ...safari.arena, enabled: false } });
 if (noArena.bundle.files.some((f) => f.path.endsWith("/dimension/zone.json"))) errors.push("safari: dimension present when arena disabled");
 if (noArena.bundle.files.some((f) => /spreadplayers|:warp_/.test(f.contents))) errors.push("safari: warp present when arena disabled");
+
+// FIXED identity: every Safari pack uses the same namespace / arena dimension / zip
+// name regardless of theme or title, so the Safari Catch Boost mod (which targets
+// `safari_zone:zone`) never needs reconfiguring. Run one Safari at a time.
+if (sfres.datapackFileName !== "safari_zone.zip") errors.push("safari: zip name must be the fixed safari_zone.zip");
+if (sfres.bundle.namespace !== "safari_zone") errors.push("safari: namespace must be fixed to safari_zone");
+if (!sfres.bundle.files.some((f) => f.path === "data/safari_zone/dimension/zone.json")) errors.push("safari: arena dimension must be data/safari_zone/dimension/zone.json");
+const renamedSafari = generateSafari({ ...safari, title: "A Completely Different Safari Name" });
+if (renamedSafari.bundle.namespace !== "safari_zone" || renamedSafari.datapackFileName !== "safari_zone.zip") errors.push("safari: identity must not depend on the title/theme");
+if (!renamedSafari.bundle.files.some((f) => f.path === "data/safari_zone/dimension/zone.json")) errors.push("safari: arena dimension must always be safari_zone:zone");
+// display text still follows the theme/title even though ids are fixed
+if (!renamedSafari.bundle.files.find((f) => f.path.endsWith("/enter_safari_zone.mcfunction"))?.contents.includes("A Completely Different Safari Name")) errors.push("safari: welcome text should still use the title");
 
 console.log("\n=== enter function ===");
 console.log(enterFn?.contents);
@@ -1042,7 +1054,7 @@ import { generateTravel } from "../src/lib/travel/generate";
 
 const tvCfg = newTravelConfig(48);
 tvCfg.title = "Safari Travel";
-tvCfg.destDimension = "resource_world:haunted_woods_safari";
+tvCfg.destDimension = "resource_world:safari_zone";
 tvCfg.destX = 128; tvCfg.destY = 80; tvCfg.destZ = -64;
 tvCfg.homeX = 10; tvCfg.homeY = 64; tvCfg.homeZ = 20;
 const tv = generateTravel(tvCfg);
@@ -1056,7 +1068,7 @@ for (const f of tv.bundle.files) {
 const tvEnter = tvf("/function/travel/enter.mcfunction");
 if (tvEnter) {
   if (!/execute store result score @s tv_x run data get entity @s Pos\[0\]/.test(tvEnter.contents)) errors.push("travel: enter doesn't capture the return point");
-  if (!/execute in resource_world:haunted_woods_safari run tp @s 128 80 -64/.test(tvEnter.contents)) errors.push("travel: enter doesn't tp into the destination dimension");
+  if (!/execute in resource_world:safari_zone run tp @s 128 80 -64/.test(tvEnter.contents)) errors.push("travel: enter doesn't tp into the destination dimension");
   if (!/effect give @s minecraft:slow_falling 10 0 true/.test(tvEnter.contents) || !/effect give @s minecraft:resistance 10 2 true/.test(tvEnter.contents)) errors.push("travel: enter missing arrival protection effects");
 } else errors.push("travel: missing travel/enter");
 // exit: macro return to the captured point
@@ -1078,7 +1090,7 @@ if (tvAdv && JSON.parse(tvAdv.contents).criteria?.used?.conditions?.item?.predic
 // lifecycle: load creates capture objectives + forceloads the pad; uninstall releases it
 const tvLoad = tvf("/function/load.mcfunction");
 if (!tvLoad || !/scoreboard objectives add tv_x dummy/.test(tvLoad.contents)) errors.push("travel: load doesn't create capture objectives");
-if (tvLoad && !/execute in resource_world:haunted_woods_safari run forceload add 128 -64/.test(tvLoad.contents)) errors.push("travel: load doesn't force-load the destination pad");
+if (tvLoad && !/execute in resource_world:safari_zone run forceload add 128 -64/.test(tvLoad.contents)) errors.push("travel: load doesn't force-load the destination pad");
 const tvUn = tvf("/function/uninstall.mcfunction");
 if (!tvUn || !/forceload remove 128 -64/.test(tvUn.contents) || !/scoreboard objectives remove tv_x/.test(tvUn.contents)) errors.push("travel: uninstall doesn't release forceload + objectives");
 if (!tv.bundle.files.some((f) => f.path === "data/minecraft/tags/function/load.json")) errors.push("travel: missing load tag");

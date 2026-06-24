@@ -2,7 +2,6 @@ import type { Bundle, GeneratedFile } from "../datapack/types";
 import type { ValidationResult } from "../datapack/validate";
 import type { FeaturedMon } from "../event/types";
 import type { SafariConfig } from "./types";
-import { toId, toNamespace } from "../datapack/sanitize";
 import { buildPackMeta } from "../datapack/packMeta";
 import { buildSpawnFiles } from "../datapack/spawns";
 import { validateDatapack } from "../datapack/validate";
@@ -42,6 +41,8 @@ const SAFARI_GROUND_BLOCKS = [
 // Per-VISIT catch counter for the reward bounty (reset on entry, so the bounty is
 // earnable again each visit instead of being a one-shot lifetime milestone).
 const CAUGHT_OBJ = "safari_caught";
+// Fixed datapack identity shared by every theme (see generateSafari for why).
+const SAFARI_ID = "safari_zone";
 
 /** Build the tiered featured-mon list (common / rare / ultra-rare). */
 function tieredFeatured(config: SafariConfig): FeaturedMon[] {
@@ -56,8 +57,13 @@ function tieredFeatured(config: SafariConfig): FeaturedMon[] {
 }
 
 export function generateSafari(config: SafariConfig): SafariGenerateResult {
-  const slug = toId(config.title || "safari");
-  const ns = toNamespace(config.title || "owner_safari");
+  // FIXED identity for every Safari pack. The theme only changes the look, spawns
+  // and text — the namespace, arena dimension (safari_zone:zone), resource world,
+  // functions, tags and the zip name are ALWAYS "safari_zone". That way the Safari
+  // Catch Boost mod (which targets `safari_zone:zone`) never needs reconfiguring per
+  // theme: run one Safari at a time, swapping out safari_zone.zip.
+  const slug = SAFARI_ID;
+  const ns = SAFARI_ID;
 
   // On-screen countdown via the vanilla action bar (no client mod). Defaults on.
   const showBar = config.timer.enabled && config.timer.hud !== false;
