@@ -19,7 +19,7 @@ import java.nio.file.Files
 data class BoostConfig(
     val multiplier: Float = 3.0f,
     val onlySafariBall: Boolean = true,
-    val dimensions: List<String> = listOf("safari:zone"),
+    val dimensions: List<String> = listOf("safari_zone:zone"),
     val debug: Boolean = false,
 ) {
     companion object {
